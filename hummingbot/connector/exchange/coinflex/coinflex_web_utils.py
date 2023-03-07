@@ -252,7 +252,7 @@ async def api_call_with_retries(request: CoinflexRESTRequest,
 
             suppress_msgs = ['Forbidden']
 
-            err_msg = (f"Error fetching data from {request.url}. HTTP status is {http_status}. "
+            """ err_msg = (f"Error fetching data from {request.url}. HTTP status is {http_status}. "
                        f"Retrying in {time_sleep:.0f}s. {resp or ''}")
 
             if (resp is not None and resp not in suppress_msgs) or try_count > 1:
@@ -261,7 +261,7 @@ async def api_call_with_retries(request: CoinflexRESTRequest,
                 else:
                     print(err_msg)
             elif logger:
-                logger.debug(err_msg, exc_info=True)
+                logger.debug(err_msg, exc_info=True) """ # @@ TODO UNCOMMENT THIS
             await asyncio.sleep(time_sleep)
             return await api_call_with_retries(request=request, rest_assistant=rest_assistant, throttler=throttler,
                                                logger=logger, try_count=try_count)

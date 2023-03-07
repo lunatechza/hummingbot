@@ -4,6 +4,7 @@ import time
 from collections import defaultdict, deque
 from enum import Enum
 from typing import Deque, Dict, List, Optional, Tuple
+import traceback
 
 import pandas as pd
 
@@ -80,10 +81,11 @@ class OrderBookTracker:
         self._init_order_books_task = safe_ensure_future(
             self._init_order_books()
         )
-        self._emit_trade_event_task = safe_ensure_future(
+        """ self._emit_trade_event_task = safe_ensure_future(
             self._emit_trade_event_loop()
-        )
-        self._order_book_diff_listener_task = safe_ensure_future(
+        ) """
+        # @@ TODO Uncomment and complete all of these, if applicable
+        """ self._order_book_diff_listener_task = safe_ensure_future(
             self._data_source.listen_for_order_book_diffs(self._ev_loop, self._order_book_diff_stream)
         )
         self._order_book_trade_listener_task = safe_ensure_future(
@@ -103,7 +105,7 @@ class OrderBookTracker:
         )
         self._update_last_trade_prices_task = safe_ensure_future(
             self._update_last_trade_prices_loop()
-        )
+        ) """
 
     def stop(self):
         if self._init_order_books_task is not None:
@@ -285,7 +287,9 @@ class OrderBookTracker:
                     self.logger().debug(f"Processed order book snapshot for {trading_pair}.")
             except asyncio.CancelledError:
                 raise
-            except Exception:
+            except Exception as err:
+                traceback.print_exc()
+                print(err)
                 self.logger().network(
                     f"Unexpected error tracking order book for {trading_pair}.",
                     exc_info=True,
