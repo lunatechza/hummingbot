@@ -234,8 +234,9 @@ cdef class StrategyBase(TimeIterator):
                 ])
             return pd.DataFrame(data=markets_data, columns=markets_columns)
 
-        except Exception:
+        except Exception as err:
             self.logger().error("Error formatting market stats.", exc_info=True)
+            print(err)
 
     def wallet_balance_data_frame(self, market_trading_pair_tuples: List[MarketTradingPairTuple]) -> pd.DataFrame:
         cdef:

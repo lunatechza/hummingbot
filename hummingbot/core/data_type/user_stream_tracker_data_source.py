@@ -50,7 +50,8 @@ class UserStreamTrackerDataSource(metaclass=ABCMeta):
                 raise
             except ConnectionError as connection_exception:
                 self.logger().warning(f"The websocket connection was closed ({connection_exception})")
-            except Exception:
+            except Exception as err:
+                print(err)
                 self.logger().exception("Unexpected error while listening to user stream. Retrying after 5 seconds...")
                 await self._sleep(1.0)
             finally:

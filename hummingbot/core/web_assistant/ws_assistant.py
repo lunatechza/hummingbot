@@ -45,7 +45,10 @@ class WSAssistant:
         message_timeout: Optional[float] = None,
         ws_headers: Optional[Dict] = {},
     ):
-        await self._connection.connect(ws_url=ws_url, ws_headers=ws_headers, ping_timeout=ping_timeout, message_timeout=message_timeout)
+        try:
+            await self._connection.connect(ws_url=ws_url, ws_headers=ws_headers, ping_timeout=ping_timeout, message_timeout=message_timeout)
+        except Exception as err:
+                print(err)
 
     async def disconnect(self):
         await self._connection.disconnect()
