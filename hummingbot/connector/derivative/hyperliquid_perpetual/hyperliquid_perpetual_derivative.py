@@ -1002,7 +1002,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
         if exchange_symbol in self._is_hip3_market and self._is_hip3_market[exchange_symbol]:
             is_cross = False  # HIP-3 markets use isolated margin by default
             msg = f"HIP-3 market {trading_pair} does not support leverage setting for cross margin. Defaulting to isolated margin."
-            self.logger().info(msg)
+            self.logger().debug(msg)
 
         # Check if coin exists in mapping
         if exchange_symbol not in self.coin_to_asset:
@@ -1011,7 +1011,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
             return False, msg
 
         asset_id = self.coin_to_asset[exchange_symbol]
-        self.logger().info(f"Setting leverage for {trading_pair}: coin={exchange_symbol}, asset_id={asset_id}")
+        self.logger().debug(f"Setting leverage for {trading_pair}: coin={exchange_symbol}, asset_id={asset_id}")
 
         params = {
             "type": "updateLeverage",
