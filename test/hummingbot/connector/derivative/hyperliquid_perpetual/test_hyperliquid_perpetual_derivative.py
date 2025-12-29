@@ -2421,7 +2421,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self.assertTrue(success)
         self.assertTrue(
             self.is_logged(
-                log_level="INFO",
+                log_level="DEBUG",
                 message=f"HIP-3 market {hip3_trading_pair} does not support leverage setting for cross margin. Defaulting to isolated margin."
             )
         )

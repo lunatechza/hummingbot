@@ -62,7 +62,17 @@ class HyperliquidPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource
                 try:
                     # Wait for a funding info update message from websocket
                     funding_info_event = await asyncio.wait_for(message_queue.get(), timeout=10.0)
-                    if "data" in funding_info_event:
+                    if isinstance(funding_info_event, FundingInfoUpdate):
+                        if funding_info_event.trading_pair == trading_pair:
+                            # Convert FundingInfoUpdate to FundingInfo
+                            return FundingInfo(
+                                trading_pair=funding_info_event.trading_pair,
+                                index_price=funding_info_event.index_price,
+                                mark_price=funding_info_event.mark_price,
+                                next_funding_utc_timestamp=funding_info_event.next_funding_utc_timestamp,
+                                rate=funding_info_event.rate,
+                            )
+                    elif isinstance(funding_info_event, dict) and "data" in funding_info_event:
                         coin = funding_info_event["data"]["coin"]
                         data = funding_info_event["data"]
                         pair = await self._connector.trading_pair_associated_to_exchange_symbol(coin)
@@ -73,16 +83,6 @@ class HyperliquidPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource
                                 mark_price=Decimal(data["ctx"]["markPx"]),
                                 next_funding_utc_timestamp=self._next_funding_time(),
                                 rate=Decimal(data["ctx"]["funding"]),
-                            )
-                    elif isinstance(funding_info_event, FundingInfoUpdate):
-                        if funding_info_event.trading_pair == trading_pair:
-                            # Convert FundingInfoUpdate to FundingInfo
-                            return FundingInfo(
-                                trading_pair=funding_info_event.trading_pair,
-                                index_price=funding_info_event.index_price,
-                                mark_price=funding_info_event.mark_price,
-                                next_funding_utc_timestamp=funding_info_event.next_funding_utc_timestamp,
-                                rate=funding_info_event.rate,
                             )
                 except asyncio.CancelledError:
                     raise

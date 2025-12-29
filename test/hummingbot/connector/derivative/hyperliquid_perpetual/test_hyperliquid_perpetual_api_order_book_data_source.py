@@ -668,3 +668,136 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTest
         self.assertEqual(self.trading_pair, message.content["trading_pair"])
         self.assertEqual(float("36500.0"), message.content["price"])
         self.assertEqual(float("0.5"), message.content["amount"])
+
+    @aioresponses()
+    @patch("hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_api_order_book_data_source.HyperliquidPerpetualAPIOrderBookDataSource._next_funding_time")
+    async def test_get_funding_info_hip3_market_with_funding_info_update(self, mock_api, next_funding_time_mock):
+        """Test get_funding_info for HIP-3 market when receiving FundingInfoUpdate object (lines 77-78, 80)."""
+        next_funding_time_mock.return_value = 1713272400
+
+        # Set up HIP-3 trading pair
+        hip3_pair = "xyz:AAPL-USD"
+        hip3_ex_symbol = "xyz:AAPL"
+        self.connector._set_trading_pair_symbol_map(bidict({hip3_ex_symbol: hip3_pair}))
+
+        # Create a FundingInfoUpdate object with matching trading pair
+        funding_info_update = FundingInfoUpdate(
+            trading_pair=hip3_pair,  # Must match the requested trading pair
+            index_price=Decimal("150.5"),
+            mark_price=Decimal("150.7"),
+            next_funding_utc_timestamp=1713272400,
+            rate=Decimal("0.0001"),
+        )
+
+        # Put FundingInfoUpdate in queue
+        message_queue = self.data_source._message_queue[self.data_source._funding_info_messages_queue_key]
+        message_queue.put_nowait(funding_info_update)
+
+        # Call get_funding_info - should return immediately when it finds matching FundingInfoUpdate
+        funding_info = await asyncio.wait_for(self.data_source.get_funding_info(hip3_pair), timeout=5.0)
+
+        self.assertEqual(hip3_pair, funding_info.trading_pair)
+        self.assertEqual(Decimal('150.5'), funding_info.index_price)
+        self.assertEqual(Decimal('150.7'), funding_info.mark_price)
+        self.assertEqual(Decimal('0.0001'), funding_info.rate)
+        self.assertEqual(1713272400, funding_info.next_funding_utc_timestamp)
+
+    @aioresponses()
+    @patch("hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_api_order_book_data_source.HyperliquidPerpetualAPIOrderBookDataSource._next_funding_time")
+    async def test_get_funding_info_base_market_not_found_returns_placeholder(self, mock_api, next_funding_time_mock):
+        """Test get_funding_info for base market returns placeholder when not found (line 119)."""
+        next_funding_time_mock.return_value = 1713272400
+
+        # Set up base market trading pair (no colon)
+        base_pair = "BTC-USD"
+        base_ex_symbol = "BTC"
+        self.connector._set_trading_pair_symbol_map(bidict({base_ex_symbol: base_pair}))
+
+        endpoint = CONSTANTS.EXCHANGE_INFO_URL
+        url = web_utils.public_rest_url(endpoint)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
+
+        # Response with different asset than requested
+        resp = [
+            {'universe': [{'maxLeverage': 50, 'name': 'ETH', 'onlyIsolated': False}]},
+            [{'dayNtlVlm': '8781185.14306', 'funding': '0.00005324',
+              'markPx': '1923.1', 'oraclePx': '1921.7'}]
+        ]
+        mock_api.post(regex_url, body=json.dumps(resp))
+
+        funding_info = await self.data_source.get_funding_info(base_pair)
+
+        # Should return placeholder values since BTC not in response
+        self.assertEqual(base_pair, funding_info.trading_pair)
+        self.assertEqual(Decimal('0'), funding_info.index_price)
+        self.assertEqual(Decimal('0'), funding_info.mark_price)
+        self.assertEqual(Decimal('0'), funding_info.rate)
+        self.assertEqual(1713272400, funding_info.next_funding_utc_timestamp)
+
+    async def test_parse_symbol_with_dict_data(self):
+        """Test parse_symbol when data is a dict not a list (lines 227-228)."""
+        raw_message = {
+            "data": {
+                "coin": "ETH",
+                "time": 1700687397643,
+                "levels": [[], []]
+            }
+        }
+
+        symbol = self.data_source.parse_symbol(raw_message)
+        self.assertEqual("ETH", symbol)
+
+    async def test_parse_funding_info_message_trading_pair_not_in_list(self):
+        """Test _parse_funding_info_message returns early when trading pair not in list (line 292)."""
+        raw_message = {
+            "data": {
+                "coin": "ETH",  # Not in self._trading_pairs
+                "ctx": {
+                    "oraclePx": "36717.0",
+                    "markPx": "36733.0",
+                    "openInterest": "0.00001793"
+                }
+            }
+        }
+
+        # Set up ETH trading pair in symbol map but NOT in _trading_pairs
+        self.connector._set_trading_pair_symbol_map(bidict({"ETH": "ETH-USD", "BTC": "BTC-USD"}))
+        self.data_source._trading_pairs = ["BTC-USD"]  # Only BTC, not ETH
+
+        message_queue = asyncio.Queue()
+        await self.data_source._parse_funding_info_message(raw_message, message_queue)
+
+        # Queue should be empty since trading pair not in list
+        self.assertTrue(message_queue.empty())
+
+    @aioresponses()
+    @patch("hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_api_order_book_data_source.HyperliquidPerpetualAPIOrderBookDataSource._next_funding_time")
+    async def test_get_funding_info_hip3_market_cancelled_error(self, mock_api, next_funding_time_mock):
+        """Test get_funding_info for HIP-3 market re-raises CancelledError (lines 87-88)."""
+        next_funding_time_mock.return_value = 1713272400
+
+        # Set up HIP-3 trading pair
+        hip3_pair = "xyz:AAPL-USD"
+        hip3_ex_symbol = "xyz:AAPL"
+        self.connector._set_trading_pair_symbol_map(bidict({hip3_ex_symbol: hip3_pair}))
+
+        # Patch wait_for to raise CancelledError
+        with patch('asyncio.wait_for', side_effect=asyncio.CancelledError()):
+            with self.assertRaises(asyncio.CancelledError):
+                await self.data_source.get_funding_info(hip3_pair)
+
+    async def test_channel_originating_message_with_result(self):
+        """Test _channel_originating_message returns empty when 'result' in event (lines 221)."""
+        # Message with "result" key should return empty channel
+        event_message = {"result": "success", "channel": "l2Book"}
+
+        channel = self.data_source._channel_originating_message(event_message)
+        self.assertEqual("", channel)
+
+    async def test_channel_originating_message_with_unknown_channel(self):
+        """Test _channel_originating_message returns empty for unknown channel (lines 225-228)."""
+        # Message without "result" key but with unknown channel should return empty
+        event_message = {"channel": "unknownChannel"}
+
+        channel = self.data_source._channel_originating_message(event_message)
+        self.assertEqual("", channel)
