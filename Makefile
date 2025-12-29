@@ -79,5 +79,5 @@ deploy:
 	@set -a; . ./.compose.env 2>/dev/null || true; set +a; \
 	docker compose up -d
 
-down: 
+down:
 	docker compose --profile gateway down
