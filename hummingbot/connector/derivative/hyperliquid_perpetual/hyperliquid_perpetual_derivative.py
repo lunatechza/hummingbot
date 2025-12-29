@@ -332,10 +332,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
             asset_ctx_list = dex_meta[1]
 
             if len(perp_meta_list) != len(asset_ctx_list):
-                self.logger().info(
-                    f"WARN: perpMeta and assetCtxs length mismatch for dex={dex_name}"
-                )
-
+                self.logger().info(f"WARN: perpMeta and assetCtxs length mismatch for dex={dex_name}")
             for meta, ctx in zip(perp_meta_list, asset_ctx_list):
                 merged = {**meta, **ctx}
                 res.append({
@@ -706,7 +703,8 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
                 return
             tracked_order = _cli_tracked_orders[0]
         trading_pair_base_coin = tracked_order.base_asset
-        if trade["coin"] == trading_pair_base_coin:
+        base = trade["coin"]
+        if base.upper() == trading_pair_base_coin:
             position_action = PositionAction.OPEN if trade["dir"].split(" ")[0] == "Open" else PositionAction.CLOSE
             fee_asset = tracked_order.quote_asset
             fee = TradeFeeBase.new_perpetual_fee(
@@ -887,9 +885,9 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
                         # quote = "USD" if deployer == "xyz" else 'USDH'
                         trading_pair = combine_to_hb_trading_pair(full_symbol, quote)
                         if trading_pair in mapping.inverse:
-                            self._resolve_trading_pair_symbols_duplicate(mapping, full_symbol, full_symbol, quote)
+                            self._resolve_trading_pair_symbols_duplicate(mapping, full_symbol, full_symbol.upper(), quote)
                         else:
-                            mapping[full_symbol] = trading_pair
+                            mapping[full_symbol] = trading_pair.upper()
 
         self._set_trading_pair_symbol_map(mapping)
 
