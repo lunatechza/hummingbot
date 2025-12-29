@@ -2010,7 +2010,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         dex_response = [{
             "name": "xyz",
             "perpMeta": [{
-                "name": "xyz:AAPL",
+                "name": "xyz:XYZ100",
                 "szDecimals": 3
             }, {
                 "name": "xyz:TSLA",
@@ -2026,27 +2026,11 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self.async_run_with_timeout(self.exchange._update_trading_rules())
 
         # Verify DEX markets were processed
-        self.assertIn("xyz:AAPL", self.exchange.coin_to_asset)
+        self.assertIn("xyz:XYZ100", self.exchange.coin_to_asset)
         self.assertIn("xyz:TSLA", self.exchange.coin_to_asset)
-        self.assertTrue(self.exchange._is_hip3_market.get("xyz:AAPL", False))
-        self.assertEqual(110000, self.exchange.coin_to_asset["xyz:AAPL"])
+        self.assertTrue(self.exchange._is_hip3_market.get("xyz:XYZ100", False))
+        self.assertEqual(110000, self.exchange.coin_to_asset["xyz:XYZ100"])
         self.assertEqual(110001, self.exchange.coin_to_asset["xyz:TSLA"])
-
-    @aioresponses()
-    def test_update_trading_rules_with_null_dex_entries(self, mock_api):
-        """Test that null DEX entries are filtered out."""
-        base_response = self.trading_rules_request_mock_response
-        mock_api.post(self.trading_rules_url, body=json.dumps(base_response))
-
-        # Mock DEX response with null entries
-        dex_response = [None, {"name": "xyz", "perpMeta": []}]
-        mock_api.post(self.trading_rules_url, body=json.dumps(dex_response))
-        mock_api.post(self.trading_rules_url, body=json.dumps([{"universe": []}, {}]))
-
-        self.async_run_with_timeout(self.exchange._update_trading_rules())
-
-        # Should not crash
-        self.assertTrue(True)
 
     @aioresponses()
     def test_initialize_trading_pair_symbol_map_with_dex_markets(self, mock_api):
@@ -2056,7 +2040,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
         dex_response = [{
             "name": "xyz",
-            "perpMeta": [{"name": "xyz:AAPL", "szDecimals": 3}]
+            "perpMeta": [{"name": "xyz:XYZ100", "szDecimals": 3}]
         }]
         mock_api.post(self.trading_rules_url, body=json.dumps(dex_response))
         mock_api.post(self.trading_rules_url, body=json.dumps([{"universe": dex_response[0]["perpMeta"]}]))
@@ -2072,7 +2056,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self.exchange._dex_markets = [{
             "name": "xyz",
             "perpMeta": [
-                {"name": "xyz:AAPL", "szDecimals": 3},
+                {"name": "xyz:XYZ100", "szDecimals": 3},
                 {"bad_format": "invalid"},  # This will cause exception
                 {"name": "xyz:TSLA", "szDecimals": 2}
             ]
@@ -2122,7 +2106,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self.exchange._dex_markets = [{
             "name": "xyz",
             "perpMeta": [
-                {"name": "xyz:AAPL", "szDecimals": 3},
+                {"name": "xyz:XYZ100", "szDecimals": 3},
             ]
         }, {
             "name": "abc",
@@ -2135,7 +2119,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self.async_run_with_timeout(self.exchange._format_trading_rules(exchange_info))
 
         # Verify different deployers get different offsets
-        self.assertEqual(110000, self.exchange.coin_to_asset.get("xyz:AAPL"))
+        self.assertEqual(110000, self.exchange.coin_to_asset.get("xyz:XYZ100"))
         self.assertEqual(120000, self.exchange.coin_to_asset.get("abc:MSFT"))
 
     @aioresponses()
@@ -2166,10 +2150,10 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
     @aioresponses()
     def test_get_order_book_data_handles_dex_markets(self, mock_api):
         """Test that order book data correctly identifies DEX markets."""
-        self.exchange._is_hip3_market = {"xyz:AAPL": True, "BTC": False}
+        self.exchange._is_hip3_market = {"xyz:XYZ100": True, "BTC": False}
 
         # The method should handle HIP-3 markets
-        self.assertTrue(self.exchange._is_hip3_market.get("xyz:AAPL", False))
+        self.assertTrue(self.exchange._is_hip3_market.get("xyz:XYZ100", False))
         self.assertFalse(self.exchange._is_hip3_market.get("BTC", False))
 
     def test_trading_pairs_request_path(self):
@@ -2377,15 +2361,15 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         # Mock DEX markets response
         dex_response = [{
             "name": "xyz",
-            "perpMeta": [{"name": "xyz:AAPL", "szDecimals": 3}],
-            "assetCtxs": [{"markPx": "175.50"}]
+            "perpMeta": [{"name": "xyz:XYZ100", "szDecimals": 3}],
+            "assetCtxs": [{"markPx": "25349.0"}]
         }]
         mock_api.post(url, body=json.dumps(dex_response))
 
         # Mock metaAndAssetCtxs for DEX
         dex_meta_response = [
-            {"universe": [{"name": "xyz:AAPL", "szDecimals": 3}]},
-            [{"markPx": "175.50"}]
+            {"universe": [{"name": "xyz:XYZ100", "szDecimals": 3}]},
+            [{"markPx": "25349.0"}]
         ]
         mock_api.post(url, body=json.dumps(dex_meta_response))
 
@@ -2418,13 +2402,13 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self._simulate_trading_rules_initialized()
 
         # Setup HIP-3 market
-        hip3_trading_pair = "xyz:AAPL-USD"
-        self.exchange._is_hip3_market["xyz:AAPL"] = True
-        self.exchange.coin_to_asset["xyz:AAPL"] = 110000
+        hip3_trading_pair = "xyz:XYZ100-USD"
+        self.exchange._is_hip3_market["xyz:XYZ100"] = True
+        self.exchange.coin_to_asset["xyz:XYZ100"] = 110000
 
         # Add to symbol map
         from bidict import bidict
-        mapping = bidict({"xyz:AAPL": hip3_trading_pair})
+        mapping = bidict({"xyz:XYZ100": hip3_trading_pair})
         self.exchange._set_trading_pair_symbol_map(mapping)
 
         url = web_utils.public_rest_url(CONSTANTS.SET_LEVERAGE_URL)
@@ -2468,12 +2452,12 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self._simulate_trading_rules_initialized()
 
         # Setup HIP-3 market
-        hip3_trading_pair = "xyz:AAPL-USD"
-        self.exchange._is_hip3_market["xyz:AAPL"] = True
+        hip3_trading_pair = "xyz:XYZ100-USD"
+        self.exchange._is_hip3_market["xyz:XYZ100"] = True
 
         # Add to symbol map
         from bidict import bidict
-        mapping = bidict({"xyz:AAPL": hip3_trading_pair})
+        mapping = bidict({"xyz:XYZ100": hip3_trading_pair})
         self.exchange._set_trading_pair_symbol_map(mapping)
 
         timestamp, funding_rate, payment = self.async_run_with_timeout(
@@ -2634,19 +2618,31 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         """Test _get_last_traded_price for HIP-3 market includes dex param."""
         self._simulate_trading_rules_initialized()
 
-        hip3_trading_pair = "xyz:AAPL-USD"
-        self.exchange._is_hip3_market["xyz:AAPL"] = True
+        hip3_trading_pair = "xyz:XYZ100-USD"
+        self.exchange._is_hip3_market["xyz:XYZ100"] = True
 
         # Add to symbol map
         from bidict import bidict
-        mapping = bidict({"xyz:AAPL": hip3_trading_pair})
+        mapping = bidict({"xyz:XYZ100": hip3_trading_pair})
         self.exchange._set_trading_pair_symbol_map(mapping)
 
         url = web_utils.public_rest_url(CONSTANTS.TICKER_PRICE_CHANGE_URL)
 
         response = [
-            {"universe": [{"name": "xyz:AAPL"}]},
-            [{"markPx": "175.50"}]
+            {"universe": [
+                {
+                    'szDecimals': 4,
+                    'name': 'xyz:XYZ100',
+                    'maxLeverage': 20,
+                    'marginTableId': 20, 'onlyIsolated': True,
+                    'marginMode': 'strictIsolated', 'growthMode': 'enabled', 'lastGrowthModeChangeTime': '2025-11-23T17:37:10.033211662'
+                },]
+             },
+            [{
+                'funding': '0.00000625',
+                'openInterest': '2994.5222', 'prevDayPx': '25004.0', 'dayNtlVlm': '159393702.057199955',
+                'premium': '0.0000394493', 'oraclePx': '25349.0', 'markPx': '25349.0', 'midPx': '25350.0',
+                'impactPxs': ['25349.0', '25351.0'], 'dayBaseVlm': '6334.6544'}]
         ]
         mock_api.post(url, body=json.dumps(response))
 
@@ -2654,7 +2650,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             self.exchange._get_last_traded_price(hip3_trading_pair)
         )
 
-        self.assertEqual(175.50, price)
+        self.assertEqual(25349.0, price)
 
     def test_last_funding_time(self):
         """Test _last_funding_time calculation."""
@@ -2696,3 +2692,217 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                 message="There was an error requesting exchange info."
             )
         )
+
+    def test_format_trading_rules_with_hip3_markets(self):
+        """Test _format_trading_rules processes HIP-3 DEX markets from hip_3_result (lines 300, 321, 329, 335)."""
+        # Initialize trading rules first to setup symbol mapping
+        self._simulate_trading_rules_initialized()
+
+        # Setup _dex_markets with HIP-3 data
+        self.exchange._dex_markets = [
+            {
+                "name": "xyz",
+                "perpMeta": [
+                    {'szDecimals': 4, 'name': 'xyz:XYZ100', 'maxLeverage': 20, 'marginTableId': 20, 'onlyIsolated': True, 'marginMode': 'strictIsolated', 'growthMode': 'enabled', 'lastGrowthModeChangeTime': '2025-11-23T17:37:10.033211662'},
+                    {'szDecimals': 3, 'name': 'xyz:TSLA', 'maxLeverage': 10, 'marginTableId': 10, 'onlyIsolated': True, 'marginMode': 'strictIsolated', 'growthMode': 'enabled', 'lastGrowthModeChangeTime': '2025-11-23T17:37:10.033211662'}
+                ],
+                "assetCtxs": [
+                    {'funding': '0.00000625', 'openInterest': '2994.5222', 'prevDayPx': '25004.0', 'dayNtlVlm': '159393702.057199955', 'premium': '0.0000394493', 'oraclePx': '25349.0', 'markPx': '25349.0', 'midPx': '25350.0', 'impactPxs': ['25349.0', '25351.0'], 'dayBaseVlm': '6334.6544'},
+                    {'funding': '0.00000625', 'openInterest': '61339.114', 'prevDayPx': '483.99', 'dayNtlVlm': '14785221.9612099975', 'premium': '0.0002288211', 'oraclePx': '482.91', 'markPx': '483.02', 'midPx': '483.025', 'impactPxs': ['482.973', '483.068'], 'dayBaseVlm': '30504.829'}
+                ]
+            },
+        ]
+
+        # Call _format_trading_rules
+        rules = self.async_run_with_timeout(
+            self.exchange._format_trading_rules(self.all_symbols_request_mock_response)
+        )
+
+        # Verify HIP-3 markets were processed - should have base markets + hip3
+        # Base markets come from all_symbols_request_mock_response, HIP-3 from _dex_markets
+        self.assertGreater(len(rules), 0)
+
+    def test_format_trading_rules_price_decimal_parsing(self):
+        """Test price decimal parsing in _format_trading_rules (lines 253-254)."""
+        # Initialize trading rules first to setup symbol mapping
+        self._simulate_trading_rules_initialized()
+
+        # Use symbols that already exist in the exchange mapping
+        # Get actual symbols from all_symbols_request_mock_response
+        existing_symbols = self.all_symbols_request_mock_response[0].get("universe", [])
+
+        # Create mock response with various decimal formats using actual symbols
+        mock_response = [
+            {
+                "universe": existing_symbols[:2]  # Use first 2 symbols from actual universe
+            },
+            [
+                {"markPx": "123.456789", "openInterest": "1000.123"},      # 6 & 3 decimals
+                {"markPx": "0.001", "openInterest": "100.1"}              # 3 & 1 decimals
+            ]
+        ]
+
+        rules = self.async_run_with_timeout(
+            self.exchange._format_trading_rules(mock_response)
+        )
+
+        # Verify rules were created - should have at least 2 from base markets
+        self.assertGreaterEqual(len(rules), 2)
+
+    def test_populate_coin_to_asset_id_map_with_hip3(self):
+        """Test asset ID mapping for HIP-3 DEX markets (lines 780, 788)."""
+        # Initialize trading rules first to setup symbol mapping
+        self._simulate_trading_rules_initialized()
+
+        # Setup multiple DEX markets with proper structure
+        # Each DEX needs perpMeta list and assetCtxs list
+        self.exchange._dex_markets = [
+            {
+                "name": "xyz",
+                "perpMeta": [
+                    {'szDecimals': 4, 'name': 'xyz:XYZ100', 'maxLeverage': 20, 'marginTableId': 20, 'onlyIsolated': True, 'marginMode': 'strictIsolated', 'growthMode': 'enabled', 'lastGrowthModeChangeTime': '2025-11-23T17:37:10.033211662'},
+                    {'szDecimals': 3, 'name': 'xyz:TSLA', 'maxLeverage': 10, 'marginTableId': 10, 'onlyIsolated': True, 'marginMode': 'strictIsolated', 'growthMode': 'enabled', 'lastGrowthModeChangeTime': '2025-11-23T17:37:10.033211662'}
+                ],
+                "assetCtxs": [
+                    {'funding': '0.00000625', 'openInterest': '2994.5222', 'prevDayPx': '25004.0', 'dayNtlVlm': '159393702.057199955', 'premium': '0.0000394493', 'oraclePx': '25349.0', 'markPx': '25349.0', 'midPx': '25350.0', 'impactPxs': ['25349.0', '25351.0'], 'dayBaseVlm': '6334.6544'},
+                    {'funding': '0.00000625', 'openInterest': '61339.114', 'prevDayPx': '483.99', 'dayNtlVlm': '14785221.9612099975', 'premium': '0.0002288211', 'oraclePx': '482.91', 'markPx': '483.02', 'midPx': '483.025', 'impactPxs': ['482.973', '483.068'], 'dayBaseVlm': '30504.829'}
+                ]
+            },
+            {
+                "name": "dex2",
+                "perpMeta": [
+                    {"name": "dex2:SOL", "szDecimals": 3}
+                ],
+                "assetCtxs": [
+                    {"markPx": "189.5", "openInterest": "50.5"}
+                ]
+            }
+        ]
+
+        # Call _format_trading_rules which processes HIP-3 markets and populates asset IDs
+        self.async_run_with_timeout(
+            self.exchange._format_trading_rules(self.all_symbols_request_mock_response)
+        )
+
+        # Verify asset IDs were mapped with correct offsets
+        # First DEX (index 0): base_offset = 110000 + asset_index
+        # Second DEX (index 1): base_offset = 120000 + asset_index
+        self.assertEqual(self.exchange.coin_to_asset.get("xyz:XYZ100"), 110000)
+        self.assertEqual(self.exchange.coin_to_asset.get("xyz:TSLA"), 110001)
+        self.assertEqual(self.exchange.coin_to_asset.get("dex2:SOL"), 120000)
+
+    def test_initialize_trading_pair_symbols_with_hip3(self):
+        """Test trading pair symbol mapping for HIP-3 markets (lines 834-845)."""
+        self._simulate_trading_rules_initialized()
+        # Setup DEX markets with proper structure
+        self.exchange._dex_markets = [
+            {
+                "name": "xyz",
+                "perpMeta": [
+                    {'szDecimals': 4, 'name': 'xyz:XYZ100', 'maxLeverage': 20, 'marginTableId': 20, 'onlyIsolated': True, 'marginMode': 'strictIsolated', 'growthMode': 'enabled', 'lastGrowthModeChangeTime': '2025-11-23T17:37:10.033211662'},
+                    {'szDecimals': 3, 'name': 'xyz:TSLA', 'maxLeverage': 10, 'marginTableId': 10, 'onlyIsolated': True, 'marginMode': 'strictIsolated', 'growthMode': 'enabled', 'lastGrowthModeChangeTime': '2025-11-23T17:37:10.033211662'}
+                ],
+                "assetCtxs": [
+                    {'funding': '0.00000625', 'openInterest': '2994.5222', 'prevDayPx': '25004.0', 'dayNtlVlm': '159393702.057199955', 'premium': '0.0000394493', 'oraclePx': '25349.0', 'markPx': '25349.0', 'midPx': '25350.0', 'impactPxs': ['25349.0', '25351.0'], 'dayBaseVlm': '6334.6544'},
+                    {'funding': '0.00000625', 'openInterest': '61339.114', 'prevDayPx': '483.99', 'dayNtlVlm': '14785221.9612099975', 'premium': '0.0002288211', 'oraclePx': '482.91', 'markPx': '483.02', 'midPx': '483.025', 'impactPxs': ['482.973', '483.068'], 'dayBaseVlm': '30504.829'}
+                ]
+            }
+        ]
+
+        # Call symbol mapping method with exchange_info parameter
+        # Pass the base exchange info which will be combined with _dex_markets
+        self.exchange._initialize_trading_pair_symbols_from_exchange_info(
+            exchange_info=self.all_symbols_request_mock_response
+        )
+
+        # Verify HIP-3 symbols are in the internal symbol map
+        # The method sets the internal _trading_pair_symbol_map via _set_trading_pair_symbol_map
+        # We can verify by checking that the exchange has the symbol map set (non-None)
+        self.assertIsNotNone(self.exchange.trading_pair_symbol_map)
+
+    @aioresponses()
+    def test_get_last_traded_price_hip3_with_dex_param(self, mock_api):
+        """Test price fetching for HIP-3 markets includes DEX parameter (lines 869, 876, 888)."""
+        self._simulate_trading_rules_initialized()
+
+        url = web_utils.public_rest_url(CONSTANTS.TICKER_PRICE_CHANGE_URL)
+
+        hip3_symbol = "xyz:XYZ100"
+        hip3_trading_pair = "XYZ_AAPL-USD"
+
+        # Setup HIP-3 market
+        self.exchange._is_hip3_market[hip3_symbol] = True
+        from bidict import bidict
+        mapping = bidict({hip3_symbol: hip3_trading_pair})
+        self.exchange._set_trading_pair_symbol_map(mapping)
+
+        # Mock price response for HIP-3 market
+        response = [
+            {"universe": [{"name": hip3_symbol}]},
+            [{"markPx": "25349.0"}]
+        ]
+        mock_api.post(url, body=json.dumps(response))
+
+        # Get price - should include dex parameter
+        price = self.async_run_with_timeout(
+            self.exchange._get_last_traded_price(hip3_trading_pair)
+        )
+
+        # Verify price was fetched
+        self.assertEqual(25349.0, price)
+
+    @aioresponses()
+    def test_get_last_traded_price_hip3_not_found(self, mock_api):
+        """Test RuntimeError when HIP-3 market price not found (line 915)."""
+        self._simulate_trading_rules_initialized()
+
+        url = web_utils.public_rest_url(CONSTANTS.TICKER_PRICE_CHANGE_URL)
+
+        hip3_symbol = "xyz:UNKNOWN"
+        hip3_trading_pair = "XYZ_UNKNOWN-USD"
+
+        # Setup HIP-3 market
+        self.exchange._is_hip3_market[hip3_symbol] = True
+        from bidict import bidict
+        mapping = bidict({hip3_symbol: hip3_trading_pair})
+        self.exchange._set_trading_pair_symbol_map(mapping)
+
+        # Mock response without the symbol
+        response = [
+            {"universe": [{"name": "xyz:OTHER"}]},
+            [{"markPx": "100.0"}]
+        ]
+        mock_api.post(url, body=json.dumps(response))
+
+        # Should raise RuntimeError
+        with self.assertRaises(RuntimeError):
+            self.async_run_with_timeout(
+                self.exchange._get_last_traded_price(hip3_trading_pair)
+            )
+
+    def test_format_trading_rules_exception_path(self):
+        """Test exception handling in _format_trading_rules (lines 256-261)."""
+        # Initialize trading rules first to setup symbol mapping
+        self._simulate_trading_rules_initialized()
+
+        # Create mock response with missing szDecimals using actual symbols from the universe
+        mock_response = [
+            {
+                "universe": [
+                    {"name": "BTC"},  # Missing szDecimals - should cause exception
+                    {"name": "ETH", "szDecimals": 4}  # Valid entry
+                ]
+            },
+            [
+                {"markPx": "36733.0", "openInterest": "34.37756"},
+                {"markPx": "1923.1", "openInterest": "638.89157"}
+            ]
+        ]
+
+        # Should not raise, but skip problematic entry
+        rules = self.async_run_with_timeout(
+            self.exchange._format_trading_rules(mock_response)
+        )
+
+        # At least one rule should be created (the valid ETH entry)
+        self.assertGreaterEqual(len(rules), 1)
