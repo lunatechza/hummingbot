@@ -99,3 +99,84 @@ class HyperliquidPerpetualRateSourceTest(IsolatedAsyncioWrapperTestCase):
 
         self.assertIn(self.trading_pair, prices)
         self.assertEqual(expected_rate, prices[self.trading_pair])
+
+    async def test_get_hyperliquid_prices_with_non_matching_quote_filter(self):
+        """Test filtering prices by quote token that doesn't match (line 38)."""
+        expected_rate = Decimal("10")
+
+        rate_source = HyperliquidPerpetualRateSource()
+        rate_source._exchange = self._get_mock_exchange(expected_rate)
+
+        prices = await rate_source.get_prices(quote_token="BTC")  # Not USD
+
+        # Should return empty dict since quote doesn't match
+        self.assertEqual(0, len(prices))
+
+    async def test_get_hyperliquid_prices_with_none_price(self):
+        """Test handling of None price values (lines 42-43)."""
+        rate_source = HyperliquidPerpetualRateSource()
+
+        mock_exchange = MagicMock()
+
+        async def mock_get_all_pairs_prices():
+            return [
+                {"symbol": "xyz:XYZ100", "price": "10"},
+                {"symbol": "BTC", "price": None},  # None price should be skipped
+            ]
+
+        async def mock_trading_pair_associated_to_exchange_symbol(symbol: str):
+            symbol_map = {
+                "xyz:XYZ100": combine_to_hb_trading_pair("xyz:XYZ100", "USD"),
+                "BTC": combine_to_hb_trading_pair("BTC", "USD"),
+            }
+            if symbol in symbol_map:
+                return symbol_map[symbol]
+            raise KeyError(f"Unknown symbol: {symbol}")
+
+        mock_exchange.get_all_pairs_prices = mock_get_all_pairs_prices
+        mock_exchange.trading_pair_associated_to_exchange_symbol = mock_trading_pair_associated_to_exchange_symbol
+
+        rate_source._exchange = mock_exchange
+
+        prices = await rate_source.get_prices()
+
+        self.assertIn(self.trading_pair, prices)
+        # BTC should not be in prices due to None price
+        btc_pair = combine_to_hb_trading_pair("BTC", "USD")
+        self.assertNotIn(btc_pair, prices)
+
+    async def test_get_hyperliquid_prices_exception_handling(self):
+        """Test exception handling in get_prices (lines 50, 54, 58)."""
+        rate_source = HyperliquidPerpetualRateSource()
+
+        mock_exchange = MagicMock()
+
+        async def mock_get_all_pairs_prices():
+            raise Exception("Network error")
+
+        mock_exchange.get_all_pairs_prices = mock_get_all_pairs_prices
+
+        rate_source._exchange = mock_exchange
+
+        prices = await rate_source.get_prices()
+
+        # Should return empty dict on exception
+        self.assertEqual({}, prices)
+
+    async def test_ensure_exchange_creates_connector(self):
+        """Test _ensure_exchange creates connector when None (line 21)."""
+        rate_source = HyperliquidPerpetualRateSource()
+
+        # Initially exchange should be None
+        self.assertIsNone(rate_source._exchange)
+
+        # Call _ensure_exchange
+        rate_source._ensure_exchange()
+
+        # Now exchange should be created
+        self.assertIsNotNone(rate_source._exchange)
+
+    def test_name_property(self):
+        """Test name property returns correct value."""
+        rate_source = HyperliquidPerpetualRateSource()
+        self.assertEqual("hyperliquid_perpetual", rate_source.name)

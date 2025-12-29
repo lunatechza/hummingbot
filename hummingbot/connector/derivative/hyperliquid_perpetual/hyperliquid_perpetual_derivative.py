@@ -775,15 +775,13 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
         # According to Hyperliquid SDK: builder-deployed perp dexs start at 110000
         # Each DEX gets an offset of 10000 (first=110000, second=120000, etc.)
         perp_dex_to_offset = {"": 0}
-        perp_dexs = self._dex_markets
-        if perp_dexs is None:
-            perp_dexs = [""]
-        else:
-            for i, perp_dex in enumerate(perp_dexs):
+        perp_dexs = self._dex_markets if self._dex_markets is not None else []
+        for i, perp_dex in enumerate(perp_dexs):
+            if perp_dex is not None:
                 # builder-deployed perp dexs start at 110000
                 perp_dex_to_offset[perp_dex["name"]] = 110000 + i * 10000
 
-        for dex_info in self._dex_markets:
+        for dex_info in perp_dexs:
             if dex_info is None:
                 continue
             dex_name = dex_info.get("name", "")
@@ -837,7 +835,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
                 quote = "USD"
                 trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=coin_name)
 
-                step_size = Decimal(str(10 ** -perp_meta.get("szDecimals")))
+                step_size = Decimal(str(10 ** -dex_info.get("szDecimals")))
                 price_size = Decimal(str(10 ** -len(dex_info.get("markPx").split('.')[1])))
                 _min_order_size = Decimal(str(10 ** -len(dex_info.get("openInterest").split('.')[1])))
                 collateral_token = quote
@@ -853,7 +851,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
                     )
                 )
             except Exception:
-                self.logger().error(f"Error parsing HIP-3 trading pair rule {perp_meta}. Skipping.",
+                self.logger().error(f"Error parsing HIP-3 trading pair rule {dex_info}. Skipping.",
                                     exc_info=True)
 
         return return_val

@@ -2906,3 +2906,259 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
         # At least one rule should be created (the valid ETH entry)
         self.assertGreaterEqual(len(rules), 1)
+
+    @aioresponses()
+    def test_update_trading_rules_with_perpmeta_assetctxs_mismatch(self, mock_api):
+        """Test _update_trading_rules when perpMeta and assetCtxs have different lengths (line 206, 211)."""
+        url = web_utils.public_rest_url(CONSTANTS.EXCHANGE_INFO_URL)
+
+        # Base exchange info
+        base_response = [
+            {'universe': [{'maxLeverage': 50, 'name': 'BTC', 'onlyIsolated': False, 'szDecimals': 5}]},
+            [{'markPx': '36733.0', 'openInterest': '34.37756', 'funding': '0.0001'}]
+        ]
+        mock_api.post(url, body=json.dumps(base_response))
+
+        # DEX response with mismatched lengths
+        dex_response = [
+            {
+                "name": "xyz",
+                "perpMeta": [
+                    {"name": "xyz:AAPL", "szDecimals": 3},
+                    {"name": "xyz:GOOG", "szDecimals": 3}  # Extra item
+                ],
+                "assetCtxs": [
+                    {"markPx": "175.50", "openInterest": "100.5"}
+                    # Missing second item - mismatch
+                ]
+            }
+        ]
+        mock_api.post(url, body=json.dumps(dex_response))
+
+        # Mock metaAndAssetCtxs call
+        meta_response = [
+            {"universe": [{"name": "xyz:AAPL", "szDecimals": 3}]},
+            [{"markPx": "175.50", "openInterest": "100.5"}]
+        ]
+        mock_api.post(url, body=json.dumps(meta_response))
+
+        # Should handle mismatch gracefully
+        self.async_run_with_timeout(self.exchange._update_trading_rules())
+
+    @aioresponses()
+    def test_initialize_trading_pair_symbol_map_with_mismatch(self, mock_api):
+        """Test _initialize_trading_pair_symbol_map with perpMeta/assetCtxs mismatch (lines 250-261)."""
+        url = web_utils.public_rest_url(CONSTANTS.EXCHANGE_INFO_URL)
+
+        # Base exchange info
+        base_response = [
+            {'universe': [{'name': 'BTC', 'szDecimals': 5}]},
+            [{'markPx': '36733.0'}]
+        ]
+        mock_api.post(url, body=json.dumps(base_response))
+
+        # DEX response
+        dex_response = [
+            {"name": "xyz"}
+        ]
+        mock_api.post(url, body=json.dumps(dex_response))
+
+        # Meta response with mismatch
+        meta_response = [
+            {"universe": [{"name": "xyz:AAPL"}, {"name": "xyz:GOOG"}]},  # 2 items
+            [{"markPx": "175.50"}]  # 1 item - mismatch
+        ]
+        mock_api.post(url, body=json.dumps(meta_response))
+
+        self.async_run_with_timeout(self.exchange._initialize_trading_pair_symbol_map())
+
+        # Should still initialize properly
+        self.assertTrue(self.exchange.trading_pair_symbol_map_ready())
+
+    @aioresponses()
+    def test_get_all_pairs_prices_with_dex_no_name(self, mock_api):
+        """Test get_all_pairs_prices when DEX has no name (line 321)."""
+        url = web_utils.public_rest_url(CONSTANTS.TICKER_PRICE_CHANGE_URL)
+
+        # Base response
+        base_response = [
+            {'universe': [{'name': 'BTC'}]},
+            [{'markPx': '50000.0', 'name': 'BTC'}]
+        ]
+        mock_api.post(url, body=json.dumps(base_response))
+
+        # DEX response with missing name
+        dex_response = [
+            {"perpMeta": [{"name": "xyz:AAPL"}]}  # No "name" field
+        ]
+        mock_api.post(url, body=json.dumps(dex_response))
+
+        result = self.async_run_with_timeout(self.exchange.get_all_pairs_prices())
+
+        # Should return base prices at minimum
+        self.assertIsInstance(result, list)
+
+    @aioresponses()
+    def test_get_all_pairs_prices_with_dex_no_universe(self, mock_api):
+        """Test get_all_pairs_prices when DEX meta has no universe (line 329)."""
+        url = web_utils.public_rest_url(CONSTANTS.TICKER_PRICE_CHANGE_URL)
+
+        # Base response
+        base_response = [
+            {'universe': [{'name': 'BTC'}]},
+            [{'markPx': '50000.0', 'name': 'BTC'}]
+        ]
+        mock_api.post(url, body=json.dumps(base_response))
+
+        # DEX list response
+        dex_response = [{"name": "xyz"}]
+        mock_api.post(url, body=json.dumps(dex_response))
+
+        # Meta response without universe
+        meta_response = [{"noUniverse": []}, []]
+        mock_api.post(url, body=json.dumps(meta_response))
+
+        result = self.async_run_with_timeout(self.exchange.get_all_pairs_prices())
+
+        self.assertIsInstance(result, list)
+
+    @aioresponses()
+    def test_get_all_pairs_prices_with_dex_mismatch(self, mock_api):
+        """Test get_all_pairs_prices with perpMeta/assetCtxs mismatch (line 335)."""
+        url = web_utils.public_rest_url(CONSTANTS.TICKER_PRICE_CHANGE_URL)
+
+        # Base response
+        base_response = [
+            {'universe': [{'name': 'BTC'}]},
+            [{'markPx': '50000.0', 'name': 'BTC'}]
+        ]
+        mock_api.post(url, body=json.dumps(base_response))
+
+        # DEX list response
+        dex_response = [{"name": "xyz"}]
+        mock_api.post(url, body=json.dumps(dex_response))
+
+        # Meta response with mismatch
+        meta_response = [
+            {"universe": [{"name": "xyz:AAPL"}, {"name": "xyz:GOOG"}]},
+            [{"markPx": "175.50"}]  # Only 1 item
+        ]
+        mock_api.post(url, body=json.dumps(meta_response))
+
+        result = self.async_run_with_timeout(self.exchange.get_all_pairs_prices())
+
+        self.assertIsInstance(result, list)
+
+    @aioresponses()
+    def test_get_all_pairs_prices_perp_mismatch(self, mock_api):
+        """Test get_all_pairs_prices when base perp universe/assetCtxs mismatch (line 300)."""
+        url = web_utils.public_rest_url(CONSTANTS.TICKER_PRICE_CHANGE_URL)
+
+        # Base response with mismatch
+        base_response = [
+            {'universe': [{'name': 'BTC'}, {'name': 'ETH'}]},  # 2 items
+            [{'markPx': '50000.0', 'name': 'BTC'}]  # 1 item
+        ]
+        mock_api.post(url, body=json.dumps(base_response))
+
+        # Empty DEX response
+        mock_api.post(url, body=json.dumps([]))
+
+        result = self.async_run_with_timeout(self.exchange.get_all_pairs_prices())
+
+        self.assertIsInstance(result, list)
+
+    def test_format_trading_rules_with_dex_markets_none(self):
+        """Test _format_trading_rules when _dex_markets is None (line 780)."""
+        self._simulate_trading_rules_initialized()
+
+        # Set _dex_markets to None
+        self.exchange._dex_markets = None
+
+        mock_response = [
+            {
+                "universe": [
+                    {"name": "BTC", "szDecimals": 5}
+                ]
+            },
+            [
+                {"markPx": "36733.0", "openInterest": "34.37756"}
+            ]
+        ]
+
+        rules = self.async_run_with_timeout(
+            self.exchange._format_trading_rules(mock_response)
+        )
+
+        self.assertGreaterEqual(len(rules), 1)
+
+    def test_format_trading_rules_with_hip3_exception(self):
+        """Test _format_trading_rules HIP-3 exception path (lines 855-856)."""
+        self._simulate_trading_rules_initialized()
+
+        # Setup HIP-3 market data with missing required fields
+        self.exchange.hip_3_result = [
+            {
+                "name": "xyz:AAPL",
+                # Missing markPx, openInterest - will cause exception
+            }
+        ]
+
+        # Setup symbol mapping for HIP-3 market
+        from bidict import bidict
+        mapping = bidict({"xyz:AAPL": "XYZ:AAPL-USD", "BTC": "BTC-USD"})
+        self.exchange._set_trading_pair_symbol_map(mapping)
+
+        mock_response = [
+            {"universe": [{"name": "BTC", "szDecimals": 5}]},
+            [{"markPx": "36733.0", "openInterest": "34.37756"}]
+        ]
+
+        # Should not raise, should log error and skip
+        rules = self.async_run_with_timeout(
+            self.exchange._format_trading_rules(mock_response)
+        )
+
+        # Should have at least the BTC rule
+        self.assertGreaterEqual(len(rules), 1)
+
+    def test_initialize_trading_pair_symbols_with_hip3_duplicate(self):
+        """Test _initialize_trading_pair_symbols_from_exchange_info with HIP-3 duplicate (lines 888)."""
+        # Setup DEX markets with a symbol that will cause duplicate
+        self.exchange._dex_markets = [
+            {
+                "name": "xyz",
+                "perpMeta": [
+                    {"name": "xyz:BTC"},  # Will conflict with base BTC
+                ]
+            }
+        ]
+
+        mock_response = [
+            {"universe": [{"name": "BTC", "szDecimals": 5}]},
+            [{"markPx": "36733.0"}]
+        ]
+
+        # Should handle duplicate gracefully
+        self.exchange._initialize_trading_pair_symbols_from_exchange_info(mock_response)
+
+        # Should still have symbol map
+        self.assertTrue(self.exchange.trading_pair_symbol_map_ready())
+
+    def test_format_trading_rules_dex_info_none_in_list(self):
+        """Test _format_trading_rules when dex_info is None in _dex_markets list (line 788)."""
+        self._simulate_trading_rules_initialized()
+
+        # Set _dex_markets with None entry
+        self.exchange._dex_markets = [None, {"name": "xyz", "perpMeta": []}]
+
+        mock_response = [
+            {"universe": [{"name": "BTC", "szDecimals": 5}]},
+            [{"markPx": "36733.0", "openInterest": "34.37756"}]
+        ]
+
+        rules = self.async_run_with_timeout(
+            self.exchange._format_trading_rules(mock_response)
+        )
+
+        self.assertGreaterEqual(len(rules), 1)
