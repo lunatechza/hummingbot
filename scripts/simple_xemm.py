@@ -10,7 +10,9 @@ from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.order_candidate import OrderCandidate
 from hummingbot.core.event.events import OrderFilledEvent
+from hummingbot.data_feed.market_data_provider import MarketDataProvider
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
+from hummingbot.strategy_v2.executors.data_types import ConnectorPair
 
 
 class SimpleXEMMConfig(BaseClientModel):
@@ -54,6 +56,12 @@ class SimpleXEMM(ScriptStrategyBase):
         # Track our active maker order IDs
         self.active_buy_order_id = None
         self.active_sell_order_id = None
+        # Initialize market data provider for rate oracle
+        self.market_data_provider = MarketDataProvider(connectors)
+        self.market_data_provider.initialize_rate_sources([
+            ConnectorPair(connector_name=config.maker_connector, trading_pair=config.maker_trading_pair),
+            ConnectorPair(connector_name=config.taker_connector, trading_pair=config.taker_trading_pair)
+        ])
 
     def is_our_order_active(self, order_id: str) -> bool:
         """Check if a specific order ID is still active"""
