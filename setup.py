@@ -10,17 +10,6 @@ from Cython.Build import cythonize
 
 is_posix = (os.name == "posix")
 
-if is_posix:
-    os_name = subprocess.check_output("uname").decode("utf8")
-    if "Darwin" in os_name:
-        os.environ["CFLAGS"] = "-stdlib=libc++ -std=c++11"
-    else:
-        os.environ["CFLAGS"] = "-std=c++11"
-
-if os.environ.get("WITHOUT_CYTHON_OPTIMIZATIONS"):
-    os.environ["CFLAGS"] += " -O0"
-
-
 # Avoid a gcc warning below:
 # cc1plus: warning: command line option ???-Wstrict-prototypes??? is valid
 # for C/ObjC but not for C++
@@ -90,9 +79,32 @@ def main():
         "PyYaml>=0.2.5",
     ]
 
+    # --- 1. Define Flags (But don't pass them to Cython yet) ---
+    extra_compile_args = []
+    extra_link_args = []
+
+    if is_posix:
+        os_name = subprocess.check_output("uname").decode("utf8")
+        if "Darwin" in os_name:
+            # macOS specific flags
+            extra_compile_args.extend(["-stdlib=libc++", "-std=c++11"])
+            extra_link_args.extend(["-stdlib=libc++", "-std=c++11"])
+        else:
+            # Linux/POSIX flags
+            extra_compile_args.append("-std=c++11")
+            extra_link_args.append("-std=c++11")
+
+    if os.environ.get("WITHOUT_CYTHON_OPTIMIZATIONS"):
+        extra_compile_args.append("-O0")
+
+    # --- 2. Setup Cython Options (Without the flags) ---
     cython_kwargs = {
+        "language": "c++",
         "language_level": 3,
     }
+    
+    if is_posix:
+        cython_kwargs["nthreads"] = cpu_count
 
     cython_sources = ["hummingbot/**/*.pyx"]
 
@@ -105,9 +117,6 @@ def main():
             "optimize.unpack_method_calls": False,
         })
 
-    if is_posix:
-        cython_kwargs["nthreads"] = cpu_count
-
     if "DEV_MODE" in os.environ:
         version += ".dev1"
         package_data[""] = [
@@ -118,6 +127,14 @@ def main():
     if len(sys.argv) > 1 and sys.argv[1] == "build_ext" and is_posix:
         sys.argv.append(f"--parallel={cpu_count}")
 
+    # --- 3. Generate Extensions & Manually Apply Flags ---
+    extensions = cythonize(cython_sources, compiler_directives=compiler_directives, **cython_kwargs)
+    
+    for ext in extensions:
+        ext.extra_compile_args = extra_compile_args
+        ext.extra_link_args = extra_link_args
+
+    # --- 4. Pass the modified extensions to setup ---
     setup(name="hummingbot",
           version=version,
           description="Hummingbot",
@@ -128,7 +145,7 @@ def main():
           packages=packages,
           package_data=package_data,
           install_requires=install_requires,
-          ext_modules=cythonize(cython_sources, compiler_directives=compiler_directives, **cython_kwargs),
+          ext_modules=extensions,  # <--- Use the list we modified
           include_dirs=[
               np.get_include()
           ],
