@@ -896,7 +896,9 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
 
         params = {"type": CONSTANTS.ASSET_CONTEXT_TYPE}
         if self._is_hip3_market.get(exchange_symbol, False):
-            params["dex"] = exchange_symbol.split(':')[0]
+            # For HIP-3 markets, need to use different type with dex parameter
+            dex_name = exchange_symbol.split(':')[0]
+            params = {"type": "metaAndAssetCtxs", "dex": dex_name}
 
         response = await self._api_post(
             path_url=CONSTANTS.TICKER_PRICE_CHANGE_URL,
