@@ -877,6 +877,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
                 if isinstance(perp_meta, dict):
                     full_symbol = perp_meta.get("name", "")  # e.g., 'xyz:AAPL'
                     if ':' in full_symbol:
+                        self._is_hip3_market[full_symbol] = True
                         deployer, base = full_symbol.split(':')
                         quote = CONSTANTS.CURRENCY
                         symbol = f'{deployer.upper()}_{base}'
