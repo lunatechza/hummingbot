@@ -951,14 +951,48 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
         self._account_available_balances[quote] = Decimal(account_info["withdrawable"])
 
     async def _update_positions(self):
-        positions = await self._api_post(path_url=CONSTANTS.POSITION_INFORMATION_URL,
-                                         data={"type": CONSTANTS.USER_STATE_TYPE,
-                                               "user": self.hyperliquid_perpetual_address}
-                                         )
-        for position in positions["assetPositions"]:
+        all_positions = []
+
+        # Fetch base perpetual positions (no dex param)
+        base_positions = await self._api_post(path_url=CONSTANTS.POSITION_INFORMATION_URL,
+                                              data={"type": CONSTANTS.USER_STATE_TYPE,
+                                                    "user": self.hyperliquid_perpetual_address}
+                                              )
+        all_positions.extend(base_positions.get("assetPositions", []))
+
+        # Fetch HIP-3 positions for each DEX market
+        for dex_info in (self._dex_markets or []):
+            if dex_info is None:
+                continue
+            dex_name = dex_info.get("name", "")
+            if not dex_name:
+                continue
+            try:
+                dex_positions = await self._api_post(path_url=CONSTANTS.POSITION_INFORMATION_URL,
+                                                     data={"type": CONSTANTS.USER_STATE_TYPE,
+                                                           "user": self.hyperliquid_perpetual_address,
+                                                           "dex": dex_name}
+                                                     )
+                all_positions.extend(dex_positions.get("assetPositions", []))
+            except Exception as e:
+                self.logger().debug(f"Error fetching positions for DEX {dex_name}: {e}")
+
+        # Process all positions
+        processed_coins = set()  # Track processed coins to avoid duplicates
+        for position in all_positions:
             position = position.get("position")
             ex_trading_pair = position.get("coin")
-            hb_trading_pair = await self.trading_pair_associated_to_exchange_symbol(ex_trading_pair)
+
+            # Skip if we already processed this coin (avoid duplicates)
+            if ex_trading_pair in processed_coins:
+                continue
+            processed_coins.add(ex_trading_pair)
+
+            try:
+                hb_trading_pair = await self.trading_pair_associated_to_exchange_symbol(ex_trading_pair)
+            except KeyError:
+                self.logger().debug(f"Skipping position for unmapped coin: {ex_trading_pair}")
+                continue
 
             position_side = PositionSide.LONG if Decimal(position.get("szi")) > 0 else PositionSide.SHORT
             unrealized_pnl = Decimal(position.get("unrealizedPnl"))
@@ -978,7 +1012,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
                 self._perpetual_trading.set_position(pos_key, _position)
             else:
                 self._perpetual_trading.remove_position(pos_key)
-        if not positions.get("assetPositions"):
+        if not all_positions:
             keys = list(self._perpetual_trading.account_positions.keys())
             for key in keys:
                 self._perpetual_trading.remove_position(key)

@@ -2614,6 +2614,269 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self.assertEqual(0, len(positions))
 
     @aioresponses()
+    def test_update_positions_with_hip3_markets(self, mock_api):
+        """Test _update_positions fetches HIP-3 positions from DEX markets."""
+        self._simulate_trading_rules_initialized()
+
+        # Set up DEX markets
+        self.exchange._dex_markets = [{"name": "xyz", "perpMeta": [{"name": "xyz:XYZ100", "szDecimals": 3}]}]
+
+        # Add HIP-3 symbol to mapping
+        from bidict import bidict
+        mapping = bidict({"BTC": "BTC-USD", "xyz:XYZ100": "XYZ:XYZ100-USD"})
+        self.exchange._set_trading_pair_symbol_map(mapping)
+        self.exchange._is_hip3_market["xyz:XYZ100"] = True
+
+        url = web_utils.public_rest_url(CONSTANTS.POSITION_INFORMATION_URL)
+
+        # Base perpetual positions response
+        base_positions_response = {
+            "assetPositions": [{
+                "position": {
+                    "coin": "BTC",
+                    "szi": "0.5",
+                    "entryPx": "50000.0",
+                    "unrealizedPnl": "100.0",
+                    "leverage": {"value": 10}
+                }
+            }]
+        }
+
+        # HIP-3 DEX positions response
+        hip3_positions_response = {
+            "assetPositions": [{
+                "position": {
+                    "coin": "xyz:XYZ100",
+                    "szi": "10.0",
+                    "entryPx": "25.0",
+                    "unrealizedPnl": "50.0",
+                    "leverage": {"value": 5}
+                }
+            }]
+        }
+
+        # Mock both API calls (base + DEX)
+        mock_api.post(url, body=json.dumps(base_positions_response))
+        mock_api.post(url, body=json.dumps(hip3_positions_response))
+
+        self.async_run_with_timeout(self.exchange._update_positions())
+
+        # Should have both positions
+        positions = self.exchange.account_positions
+        self.assertEqual(2, len(positions))
+
+    @aioresponses()
+    def test_update_positions_hip3_dex_error_handling(self, mock_api):
+        """Test _update_positions handles DEX API errors gracefully."""
+        self._simulate_trading_rules_initialized()
+
+        # Set up DEX markets
+        self.exchange._dex_markets = [{"name": "xyz", "perpMeta": [{"name": "xyz:XYZ100", "szDecimals": 3}]}]
+
+        url = web_utils.public_rest_url(CONSTANTS.POSITION_INFORMATION_URL)
+
+        # Base perpetual positions response
+        base_positions_response = {
+            "assetPositions": [{
+                "position": {
+                    "coin": "BTC",
+                    "szi": "0.5",
+                    "entryPx": "50000.0",
+                    "unrealizedPnl": "100.0",
+                    "leverage": {"value": 10}
+                }
+            }]
+        }
+
+        # Mock base call success, DEX call failure
+        mock_api.post(url, body=json.dumps(base_positions_response))
+        mock_api.post(url, status=500)  # DEX call fails
+
+        # Should not raise, just log and continue
+        self.async_run_with_timeout(self.exchange._update_positions())
+
+        # Should still have base position
+        positions = self.exchange.account_positions
+        self.assertGreaterEqual(len(positions), 1)
+
+    @aioresponses()
+    def test_update_positions_skips_unmapped_coins(self, mock_api):
+        """Test _update_positions skips positions for coins not in symbol map."""
+        self._simulate_trading_rules_initialized()
+
+        url = web_utils.public_rest_url(CONSTANTS.POSITION_INFORMATION_URL)
+
+        # Response with an unmapped coin
+        positions_response = {
+            "assetPositions": [
+                {
+                    "position": {
+                        "coin": "BTC",
+                        "szi": "0.5",
+                        "entryPx": "50000.0",
+                        "unrealizedPnl": "100.0",
+                        "leverage": {"value": 10}
+                    }
+                },
+                {
+                    "position": {
+                        "coin": "UNKNOWN_COIN",  # Not in symbol map
+                        "szi": "1.0",
+                        "entryPx": "100.0",
+                        "unrealizedPnl": "10.0",
+                        "leverage": {"value": 5}
+                    }
+                }
+            ]
+        }
+        mock_api.post(url, body=json.dumps(positions_response))
+
+        # Should not raise, just skip unmapped coin
+        self.async_run_with_timeout(self.exchange._update_positions())
+
+        # Should have only BTC position
+        positions = self.exchange.account_positions
+        self.assertEqual(1, len(positions))
+
+    @aioresponses()
+    def test_update_positions_deduplicates_coins(self, mock_api):
+        """Test _update_positions deduplicates positions from multiple sources."""
+        self._simulate_trading_rules_initialized()
+
+        # Set up DEX markets
+        self.exchange._dex_markets = [{"name": "xyz", "perpMeta": []}]
+
+        url = web_utils.public_rest_url(CONSTANTS.POSITION_INFORMATION_URL)
+
+        # Both responses have BTC (simulating overlap)
+        base_positions_response = {
+            "assetPositions": [{
+                "position": {
+                    "coin": "BTC",
+                    "szi": "0.5",
+                    "entryPx": "50000.0",
+                    "unrealizedPnl": "100.0",
+                    "leverage": {"value": 10}
+                }
+            }]
+        }
+
+        dex_positions_response = {
+            "assetPositions": [{
+                "position": {
+                    "coin": "BTC",  # Duplicate coin
+                    "szi": "0.5",
+                    "entryPx": "50000.0",
+                    "unrealizedPnl": "100.0",
+                    "leverage": {"value": 10}
+                }
+            }]
+        }
+
+        mock_api.post(url, body=json.dumps(base_positions_response))
+        mock_api.post(url, body=json.dumps(dex_positions_response))
+
+        self.async_run_with_timeout(self.exchange._update_positions())
+
+        # Should have only one BTC position (deduplicated)
+        positions = self.exchange.account_positions
+        self.assertEqual(1, len(positions))
+
+    @aioresponses()
+    def test_update_positions_with_none_dex_info(self, mock_api):
+        """Test _update_positions handles None entries in _dex_markets."""
+        self._simulate_trading_rules_initialized()
+
+        # Set up DEX markets with None entry
+        self.exchange._dex_markets = [None, {"name": "xyz", "perpMeta": []}]
+
+        url = web_utils.public_rest_url(CONSTANTS.POSITION_INFORMATION_URL)
+
+        positions_response = {
+            "assetPositions": [{
+                "position": {
+                    "coin": "BTC",
+                    "szi": "0.5",
+                    "entryPx": "50000.0",
+                    "unrealizedPnl": "100.0",
+                    "leverage": {"value": 10}
+                }
+            }]
+        }
+
+        # Base call + valid DEX call (None is skipped)
+        mock_api.post(url, body=json.dumps(positions_response))
+        mock_api.post(url, body=json.dumps({"assetPositions": []}))
+
+        # Should not raise
+        self.async_run_with_timeout(self.exchange._update_positions())
+
+        positions = self.exchange.account_positions
+        self.assertEqual(1, len(positions))
+
+    @aioresponses()
+    def test_update_positions_with_empty_dex_name(self, mock_api):
+        """Test _update_positions skips DEX with empty name."""
+        self._simulate_trading_rules_initialized()
+
+        # Set up DEX markets with empty name
+        self.exchange._dex_markets = [{"name": "", "perpMeta": []}]
+
+        url = web_utils.public_rest_url(CONSTANTS.POSITION_INFORMATION_URL)
+
+        positions_response = {
+            "assetPositions": [{
+                "position": {
+                    "coin": "BTC",
+                    "szi": "0.5",
+                    "entryPx": "50000.0",
+                    "unrealizedPnl": "100.0",
+                    "leverage": {"value": 10}
+                }
+            }]
+        }
+
+        # Only base call (empty dex name is skipped)
+        mock_api.post(url, body=json.dumps(positions_response))
+
+        self.async_run_with_timeout(self.exchange._update_positions())
+
+        positions = self.exchange.account_positions
+        self.assertEqual(1, len(positions))
+
+    @aioresponses()
+    def test_update_positions_short_position(self, mock_api):
+        """Test _update_positions correctly identifies SHORT positions."""
+        self._simulate_trading_rules_initialized()
+
+        url = web_utils.public_rest_url(CONSTANTS.POSITION_INFORMATION_URL)
+
+        # Negative szi indicates short position
+        positions_response = {
+            "assetPositions": [{
+                "position": {
+                    "coin": "BTC",
+                    "szi": "-0.5",  # Negative = SHORT
+                    "entryPx": "50000.0",
+                    "unrealizedPnl": "-100.0",
+                    "leverage": {"value": 10}
+                }
+            }]
+        }
+        mock_api.post(url, body=json.dumps(positions_response))
+
+        self.async_run_with_timeout(self.exchange._update_positions())
+
+        positions = self.exchange.account_positions
+        self.assertEqual(1, len(positions))
+
+        # Verify position has correct side and negative amount
+        pos = list(positions.values())[0]
+        from hummingbot.core.data_type.common import PositionSide
+        self.assertEqual(PositionSide.SHORT, pos.position_side)
+        self.assertLess(pos.amount, 0)
+
+    @aioresponses()
     def test_get_last_traded_price_for_hip3_market(self, mock_api):
         """Test _get_last_traded_price for HIP-3 market includes dex param."""
         self._simulate_trading_rules_initialized()
