@@ -149,6 +149,9 @@ class HyperliquidPerpetualRateSourceTest(IsolatedAsyncioWrapperTestCase):
         """Test exception handling in get_prices (lines 50, 54, 58)."""
         rate_source = HyperliquidPerpetualRateSource()
 
+        # Clear the cache to ensure our mock is called
+        rate_source.get_prices.cache_clear()
+
         mock_exchange = MagicMock()
 
         async def mock_get_all_pairs_prices():
