@@ -522,27 +522,23 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTest
         self.assertEqual(1, mock_queue.qsize())
 
     async def test_listen_for_funding_info_logs_exception(self):
-        # Simulate a malformed websocket message that will cause an exception
-        malformed_message = {
-            "data": {
-                "coin": self.base_asset,
-                # Missing "ctx" key which will cause KeyError
-            }
-        }
-
-        # Put malformed message in the internal queue
-        message_queue = self.data_source._message_queue[self.data_source._funding_info_messages_queue_key]
-        message_queue.put_nowait(malformed_message)
-
+        # Simulate a message that will cause an exception in listen_for_funding_info
+        # by mocking _parse_funding_info_message to raise an exception
         msg_queue: asyncio.Queue = asyncio.Queue()
 
-        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_funding_info(msg_queue))
+        # Put a message that will trigger an exception
+        message_queue = self.data_source._message_queue[self.data_source._funding_info_messages_queue_key]
+        message_queue.put_nowait({"invalid": "message"})
 
-        # Wait for the exception to be logged
-        await asyncio.sleep(0.2)
+        # Mock _parse_funding_info_message to raise an exception
+        with patch.object(self.data_source, '_parse_funding_info_message', side_effect=ValueError("Test error")):
+            self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_funding_info(msg_queue))
 
-        self.assertTrue(
-            self._is_logged("ERROR", "Unexpected error when processing public funding info updates from exchange"))
+            # Wait for the exception to be logged
+            await asyncio.sleep(0.2)
+
+            self.assertTrue(
+                self._is_logged("ERROR", "Unexpected error when processing public funding info updates from exchange"))
 
     @patch(
         "hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_api_order_book_data_source."
@@ -586,7 +582,7 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTest
     @aioresponses()
     @patch("hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_api_order_book_data_source.HyperliquidPerpetualAPIOrderBookDataSource._next_funding_time")
     async def test_get_funding_info_hip3_market_with_data_message(self, mock_api, next_funding_time_mock):
-        """Test get_funding_info for HIP-3 market (contains ':') with data message from websocket."""
+        """Test get_funding_info for HIP-3 market (contains ':') uses REST API."""
         next_funding_time_mock.return_value = 1713272400
 
         # Set up HIP-3 trading pair
@@ -594,23 +590,19 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTest
         hip3_ex_symbol = "xyz:AAPL"
         self.connector._set_trading_pair_symbol_map(bidict({hip3_ex_symbol: hip3_pair}))
 
-        # Simulate websocket message with "data" field
-        funding_message = {
-            "data": {
-                "coin": hip3_ex_symbol,
-                "ctx": {
-                    "oraclePx": "150.5",
-                    "markPx": "150.7",
-                    "funding": "0.0001"
-                }
-            }
-        }
+        # Mock REST API response for HIP-3 market
+        endpoint = CONSTANTS.EXCHANGE_INFO_URL
+        url = web_utils.public_rest_url(endpoint)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
 
-        # Put message in queue
-        message_queue = self.data_source._message_queue[self.data_source._funding_info_messages_queue_key]
-        message_queue.put_nowait(funding_message)
+        resp = [
+            {'universe': [{'maxLeverage': 50, 'name': 'xyz:AAPL', 'onlyIsolated': False, 'szDecimals': 2}]},
+            [{'dayNtlVlm': '100000.0', 'funding': '0.0001',
+              'markPx': '150.7', 'oraclePx': '150.5', 'openInterest': '1000.0'}]
+        ]
+        mock_api.post(regex_url, body=json.dumps(resp))
 
-        # Call get_funding_info
+        # Call get_funding_info - should use REST API for HIP-3 markets
         funding_info = await self.data_source.get_funding_info(hip3_pair)
 
         self.assertEqual(hip3_pair, funding_info.trading_pair)
@@ -672,7 +664,7 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTest
     @aioresponses()
     @patch("hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_api_order_book_data_source.HyperliquidPerpetualAPIOrderBookDataSource._next_funding_time")
     async def test_get_funding_info_hip3_market_with_funding_info_update(self, mock_api, next_funding_time_mock):
-        """Test get_funding_info for HIP-3 market when receiving FundingInfoUpdate object (lines 77-78, 80)."""
+        """Test get_funding_info for HIP-3 market returns placeholder when asset not found in response."""
         next_funding_time_mock.return_value = 1713272400
 
         # Set up HIP-3 trading pair
@@ -680,26 +672,25 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTest
         hip3_ex_symbol = "xyz:AAPL"
         self.connector._set_trading_pair_symbol_map(bidict({hip3_ex_symbol: hip3_pair}))
 
-        # Create a FundingInfoUpdate object with matching trading pair
-        funding_info_update = FundingInfoUpdate(
-            trading_pair=hip3_pair,  # Must match the requested trading pair
-            index_price=Decimal("150.5"),
-            mark_price=Decimal("150.7"),
-            next_funding_utc_timestamp=1713272400,
-            rate=Decimal("0.0001"),
-        )
+        # Mock REST API response with different asset than requested
+        endpoint = CONSTANTS.EXCHANGE_INFO_URL
+        url = web_utils.public_rest_url(endpoint)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
 
-        # Put FundingInfoUpdate in queue
-        message_queue = self.data_source._message_queue[self.data_source._funding_info_messages_queue_key]
-        message_queue.put_nowait(funding_info_update)
+        resp = [
+            {'universe': [{'maxLeverage': 50, 'name': 'xyz:GOOG', 'onlyIsolated': False, 'szDecimals': 2}]},
+            [{'dayNtlVlm': '100000.0', 'funding': '0.0002',
+              'markPx': '200.0', 'oraclePx': '199.5', 'openInterest': '500.0'}]
+        ]
+        mock_api.post(regex_url, body=json.dumps(resp))
 
-        # Call get_funding_info - should return immediately when it finds matching FundingInfoUpdate
+        # Call get_funding_info - should return placeholder since AAPL not in response
         funding_info = await asyncio.wait_for(self.data_source.get_funding_info(hip3_pair), timeout=5.0)
 
         self.assertEqual(hip3_pair, funding_info.trading_pair)
-        self.assertEqual(Decimal('150.5'), funding_info.index_price)
-        self.assertEqual(Decimal('150.7'), funding_info.mark_price)
-        self.assertEqual(Decimal('0.0001'), funding_info.rate)
+        self.assertEqual(Decimal('0'), funding_info.index_price)
+        self.assertEqual(Decimal('0'), funding_info.mark_price)
+        self.assertEqual(Decimal('0'), funding_info.rate)
         self.assertEqual(1713272400, funding_info.next_funding_utc_timestamp)
 
     @aioresponses()
@@ -773,7 +764,7 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTest
     @aioresponses()
     @patch("hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_api_order_book_data_source.HyperliquidPerpetualAPIOrderBookDataSource._next_funding_time")
     async def test_get_funding_info_hip3_market_cancelled_error(self, mock_api, next_funding_time_mock):
-        """Test get_funding_info for HIP-3 market re-raises CancelledError (lines 87-88)."""
+        """Test get_funding_info for HIP-3 market returns placeholder on API error."""
         next_funding_time_mock.return_value = 1713272400
 
         # Set up HIP-3 trading pair
@@ -781,10 +772,20 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTest
         hip3_ex_symbol = "xyz:AAPL"
         self.connector._set_trading_pair_symbol_map(bidict({hip3_ex_symbol: hip3_pair}))
 
-        # Patch wait_for to raise CancelledError
-        with patch('asyncio.wait_for', side_effect=asyncio.CancelledError()):
-            with self.assertRaises(asyncio.CancelledError):
-                await self.data_source.get_funding_info(hip3_pair)
+        # Mock REST API to return error response
+        endpoint = CONSTANTS.EXCHANGE_INFO_URL
+        url = web_utils.public_rest_url(endpoint)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
+        mock_api.post(regex_url, status=500)
+
+        # Call get_funding_info - should return placeholder on error
+        funding_info = await self.data_source.get_funding_info(hip3_pair)
+
+        self.assertEqual(hip3_pair, funding_info.trading_pair)
+        self.assertEqual(Decimal('0'), funding_info.index_price)
+        self.assertEqual(Decimal('0'), funding_info.mark_price)
+        self.assertEqual(Decimal('0'), funding_info.rate)
+        self.assertEqual(1713272400, funding_info.next_funding_utc_timestamp)
 
     async def test_channel_originating_message_with_result(self):
         """Test _channel_originating_message returns empty when 'result' in event (lines 221)."""

@@ -896,7 +896,9 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
         )
 
         params = {"type": CONSTANTS.ASSET_CONTEXT_TYPE}
-        if self._is_hip3_market.get(exchange_symbol, False):
+        # Detect HIP-3 market by dict lookup OR by ":" in symbol (fallback for early calls)
+        is_hip3 = self._is_hip3_market.get(exchange_symbol, False) or ":" in exchange_symbol
+        if is_hip3:
             # For HIP-3 markets, need to use different type with dex parameter
             dex_name = exchange_symbol.split(':')[0]
             params = {"type": "metaAndAssetCtxs", "dex": dex_name}
