@@ -2002,6 +2002,9 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
     @aioresponses()
     def test_update_trading_rules_with_dex_markets(self, mock_api):
         """Test trading rules update with HIP-3 DEX markets."""
+        # Enable HIP-3 markets for this test
+        self.exchange._enable_hip3_markets = True
+
         # Mock base market response
         base_response = self.trading_rules_request_mock_response
         mock_api.post(self.trading_rules_url, body=json.dumps(base_response))
@@ -2035,6 +2038,9 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
     @aioresponses()
     def test_initialize_trading_pair_symbol_map_with_dex_markets(self, mock_api):
         """Test symbol map initialization includes DEX markets."""
+        # Enable HIP-3 markets for this test
+        self.exchange._enable_hip3_markets = True
+
         base_response = self.trading_rules_request_mock_response
         mock_api.post(self.trading_rules_url, body=json.dumps(base_response))
 
@@ -2618,6 +2624,9 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         """Test _update_positions fetches HIP-3 positions from DEX markets."""
         self._simulate_trading_rules_initialized()
 
+        # Enable HIP-3 markets for this test
+        self.exchange._enable_hip3_markets = True
+
         # Set up DEX markets
         self.exchange._dex_markets = [{"name": "xyz", "perpMeta": [{"name": "xyz:XYZ100", "szDecimals": 3}]}]
 
@@ -2669,6 +2678,9 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
     def test_update_positions_hip3_dex_error_handling(self, mock_api):
         """Test _update_positions handles DEX API errors gracefully."""
         self._simulate_trading_rules_initialized()
+
+        # Enable HIP-3 markets for this test
+        self.exchange._enable_hip3_markets = True
 
         # Set up DEX markets
         self.exchange._dex_markets = [{"name": "xyz", "perpMeta": [{"name": "xyz:XYZ100", "szDecimals": 3}]}]

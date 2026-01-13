@@ -52,6 +52,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
             trading_pairs: Optional[List[str]] = None,
             trading_required: bool = True,
             domain: str = CONSTANTS.DOMAIN,
+            enable_hip3_markets: bool = False,
     ):
         self.hyperliquid_perpetual_address = hyperliquid_perpetual_address
         self.hyperliquid_perpetual_secret_key = hyperliquid_perpetual_secret_key
@@ -60,6 +61,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
         self._domain = domain
+        self._enable_hip3_markets = enable_hip3_markets
         self._position_mode = None
         self._last_trade_history_timestamp = None
         self.coin_to_asset: Dict[str, int] = {}  # Maps coin name to asset ID for ALL markets
@@ -185,51 +187,10 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
     async def _update_trading_rules(self):
         exchange_info = await self._api_post(path_url=self.trading_rules_request_path,
                                              data={"type": CONSTANTS.ASSET_CONTEXT_TYPE})
-        exchange_info_dex = await self._api_post(
-            path_url=self.trading_pairs_request_path,
-            data={"type": CONSTANTS.DEX_ASSET_CONTEXT_TYPE})
-        # Remove any null entries
-        exchange_info_dex = [info for info in exchange_info_dex if info is not None]
 
-        # Fetch perpMeta for each DEX from the meta endpoint
-        for dex_info in exchange_info_dex:
-            dex_name = dex_info.get("name", "")
-            dex_meta = await self._api_post(
-                path_url=self.trading_pairs_request_path,
-                data={"type": "metaAndAssetCtxs", "dex": dex_name})
-            if "universe" in dex_meta[0]:
-                dex_info["perpMeta"] = dex_meta[0]["universe"]
-                dex_info["assetCtxs"] = dex_meta[1]
-
-        for dex_info in exchange_info_dex:
-            if not dex_info:
-                continue
-
-            perp_meta_list = dex_info.get("perpMeta", []) or []
-            asset_ctx_list = dex_info.get("assetCtxs", []) or []
-
-            if len(perp_meta_list) != len(asset_ctx_list):
-                print("WARN: perpMeta and assetCtxs length mismatch")
-
-            for perp_meta, asset_ctx in zip(perp_meta_list, asset_ctx_list):
-                merged_info = {**perp_meta, **asset_ctx}
-                self.hip_3_result.append(merged_info)
-
-        # Store DEX info separately for reference, don't extend universe
-        self._dex_markets = exchange_info_dex
-        # Initialize symbol map BEFORE formatting trading rules (needed for symbol lookup)
-        self._initialize_trading_pair_symbols_from_exchange_info(exchange_info=exchange_info)
-        # Keep base universe unchanged - only use validated perpetual indices
-        trading_rules_list = await self._format_trading_rules(exchange_info)
-        self._trading_rules.clear()
-        for trading_rule in trading_rules_list:
-            self._trading_rules[trading_rule.trading_pair] = trading_rule
-
-    async def _initialize_trading_pair_symbol_map(self):
-        try:
-            exchange_info = await self._api_post(
-                path_url=self.trading_pairs_request_path,
-                data={"type": CONSTANTS.ASSET_CONTEXT_TYPE})
+        # Only fetch HIP-3/DEX markets if enabled
+        exchange_info_dex = []
+        if self._enable_hip3_markets:
             exchange_info_dex = await self._api_post(
                 path_url=self.trading_pairs_request_path,
                 data={"type": CONSTANTS.DEX_ASSET_CONTEXT_TYPE})
@@ -259,6 +220,55 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
                 for perp_meta, asset_ctx in zip(perp_meta_list, asset_ctx_list):
                     merged_info = {**perp_meta, **asset_ctx}
                     self.hip_3_result.append(merged_info)
+
+        # Store DEX info separately for reference, don't extend universe
+        self._dex_markets = exchange_info_dex
+        # Initialize symbol map BEFORE formatting trading rules (needed for symbol lookup)
+        self._initialize_trading_pair_symbols_from_exchange_info(exchange_info=exchange_info)
+        # Keep base universe unchanged - only use validated perpetual indices
+        trading_rules_list = await self._format_trading_rules(exchange_info)
+        self._trading_rules.clear()
+        for trading_rule in trading_rules_list:
+            self._trading_rules[trading_rule.trading_pair] = trading_rule
+
+    async def _initialize_trading_pair_symbol_map(self):
+        try:
+            exchange_info = await self._api_post(
+                path_url=self.trading_pairs_request_path,
+                data={"type": CONSTANTS.ASSET_CONTEXT_TYPE})
+
+            # Only fetch HIP-3/DEX markets if enabled
+            exchange_info_dex = []
+            if self._enable_hip3_markets:
+                exchange_info_dex = await self._api_post(
+                    path_url=self.trading_pairs_request_path,
+                    data={"type": CONSTANTS.DEX_ASSET_CONTEXT_TYPE})
+                # Remove any null entries
+                exchange_info_dex = [info for info in exchange_info_dex if info is not None]
+
+                # Fetch perpMeta for each DEX from the meta endpoint
+                for dex_info in exchange_info_dex:
+                    dex_name = dex_info.get("name", "")
+                    dex_meta = await self._api_post(
+                        path_url=self.trading_pairs_request_path,
+                        data={"type": "metaAndAssetCtxs", "dex": dex_name})
+                    if "universe" in dex_meta[0]:
+                        dex_info["perpMeta"] = dex_meta[0]["universe"]
+                        dex_info["assetCtxs"] = dex_meta[1]
+
+                for dex_info in exchange_info_dex:
+                    if not dex_info:
+                        continue
+
+                    perp_meta_list = dex_info.get("perpMeta", []) or []
+                    asset_ctx_list = dex_info.get("assetCtxs", []) or []
+
+                    if len(perp_meta_list) != len(asset_ctx_list):
+                        print("WARN: perpMeta and assetCtxs length mismatch")
+
+                    for perp_meta, asset_ctx in zip(perp_meta_list, asset_ctx_list):
+                        merged_info = {**perp_meta, **asset_ctx}
+                        self.hip_3_result.append(merged_info)
 
             # Store DEX info separately for reference
             self._dex_markets = exchange_info_dex
@@ -307,38 +317,39 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
                 "price": merged.get("markPx"),
             })
 
-        # ===== Fetch DEX / HIP-3 markets =====
-        exchange_info_dex = await self._api_post(
-            path_url=self.trading_pairs_request_path,
-            data={"type": CONSTANTS.DEX_ASSET_CONTEXT_TYPE},
-        )
-
-        exchange_info_dex = [info for info in exchange_info_dex if info]
-
-        for dex_info in exchange_info_dex:
-            dex_name = dex_info.get("name")
-            if not dex_name:
-                continue
-
-            dex_meta = await self._api_post(
+        # ===== Fetch DEX / HIP-3 markets (only if enabled) =====
+        if self._enable_hip3_markets:
+            exchange_info_dex = await self._api_post(
                 path_url=self.trading_pairs_request_path,
-                data={"type": "metaAndAssetCtxs", "dex": dex_name},
+                data={"type": CONSTANTS.DEX_ASSET_CONTEXT_TYPE},
             )
 
-            if not dex_meta or "universe" not in dex_meta[0]:
-                continue
+            exchange_info_dex = [info for info in exchange_info_dex if info]
 
-            perp_meta_list = dex_meta[0]["universe"]
-            asset_ctx_list = dex_meta[1]
+            for dex_info in exchange_info_dex:
+                dex_name = dex_info.get("name")
+                if not dex_name:
+                    continue
 
-            if len(perp_meta_list) != len(asset_ctx_list):
-                self.logger().info(f"WARN: perpMeta and assetCtxs length mismatch for dex={dex_name}")
-            for meta, ctx in zip(perp_meta_list, asset_ctx_list):
-                merged = {**meta, **ctx}
-                res.append({
-                    "symbol": merged.get("name"),
-                    "price": merged.get("markPx"),
-                })
+                dex_meta = await self._api_post(
+                    path_url=self.trading_pairs_request_path,
+                    data={"type": "metaAndAssetCtxs", "dex": dex_name},
+                )
+
+                if not dex_meta or "universe" not in dex_meta[0]:
+                    continue
+
+                perp_meta_list = dex_meta[0]["universe"]
+                asset_ctx_list = dex_meta[1]
+
+                if len(perp_meta_list) != len(asset_ctx_list):
+                    self.logger().info(f"WARN: perpMeta and assetCtxs length mismatch for dex={dex_name}")
+                for meta, ctx in zip(perp_meta_list, asset_ctx_list):
+                    merged = {**meta, **ctx}
+                    res.append({
+                        "symbol": merged.get("name"),
+                        "price": merged.get("markPx"),
+                    })
 
         return res
 
@@ -962,22 +973,23 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
                                               )
         all_positions.extend(base_positions.get("assetPositions", []))
 
-        # Fetch HIP-3 positions for each DEX market
-        for dex_info in (self._dex_markets or []):
-            if dex_info is None:
-                continue
-            dex_name = dex_info.get("name", "")
-            if not dex_name:
-                continue
-            try:
-                dex_positions = await self._api_post(path_url=CONSTANTS.POSITION_INFORMATION_URL,
-                                                     data={"type": CONSTANTS.USER_STATE_TYPE,
-                                                           "user": self.hyperliquid_perpetual_address,
-                                                           "dex": dex_name}
-                                                     )
-                all_positions.extend(dex_positions.get("assetPositions", []))
-            except Exception as e:
-                self.logger().debug(f"Error fetching positions for DEX {dex_name}: {e}")
+        # Fetch HIP-3 positions for each DEX market (only if enabled)
+        if self._enable_hip3_markets:
+            for dex_info in (self._dex_markets or []):
+                if dex_info is None:
+                    continue
+                dex_name = dex_info.get("name", "")
+                if not dex_name:
+                    continue
+                try:
+                    dex_positions = await self._api_post(path_url=CONSTANTS.POSITION_INFORMATION_URL,
+                                                         data={"type": CONSTANTS.USER_STATE_TYPE,
+                                                               "user": self.hyperliquid_perpetual_address,
+                                                               "dex": dex_name}
+                                                         )
+                    all_positions.extend(dex_positions.get("assetPositions", []))
+                except Exception as e:
+                    self.logger().debug(f"Error fetching positions for DEX {dex_name}: {e}")
 
         # Process all positions
         processed_coins = set()  # Track processed coins to avoid duplicates
