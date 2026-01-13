@@ -78,10 +78,10 @@ class HyperliquidPerpetualConfigMap(BaseConnectorConfigMap):
     enable_hip3_markets: bool = Field(
         default=False,
         json_schema_extra={
-            "prompt": "Enable HIP-3 (DEX) markets? (Yes/No)",
+            "prompt": "Do you want to Enable HIP-3 (DEX) markets? (Yes/No)",
             "is_secure": False,
             "is_connect_key": True,
-            "prompt_on_new": False,
+            "prompt_on_new": True,
         }
     )
     hyperliquid_perpetual_address: SecretStr = Field(
@@ -171,10 +171,10 @@ class HyperliquidPerpetualTestnetConfigMap(BaseConnectorConfigMap):
     enable_hip3_markets: bool = Field(
         default=False,
         json_schema_extra={
-            "prompt": "Enable HIP-3 (DEX) markets? (Yes/No)",
+            "prompt": "Do you want to Enable HIP-3 (DEX) markets? (Yes/No)",
             "is_secure": False,
             "is_connect_key": True,
-            "prompt_on_new": False,
+            "prompt_on_new": True,
         }
     )
     hyperliquid_perpetual_testnet_address: SecretStr = Field(
