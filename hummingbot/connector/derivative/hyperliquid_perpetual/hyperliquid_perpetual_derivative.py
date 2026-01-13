@@ -902,9 +902,22 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
         self._set_trading_pair_symbol_map(mapping)
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
-        exchange_symbol = await self.exchange_symbol_associated_to_pair(
-            trading_pair=trading_pair
-        )
+        if ":" in trading_pair:
+            # HIP-3 trading pair - extract base (e.g., "xyz:XYZ100" from "xyz:XYZ100-USD")
+            parts = trading_pair.split("-")
+            if len(parts) >= 2:
+                exchange_symbol = trading_pair.rsplit("-", 1)[0]
+                # Convert to lowercase for the dex name part
+                dex_name, coin = exchange_symbol.split(":")
+                exchange_symbol = f"{dex_name.lower()}:{coin}"
+        else:
+            try:
+                exchange_symbol = await self.exchange_symbol_associated_to_pair(
+                    trading_pair=trading_pair
+                )
+            except KeyError:
+                # Trading pair not in symbol map yet, try to extract from trading pair directly
+                exchange_symbol = trading_pair.split("-")[0]
 
         params = {"type": CONSTANTS.ASSET_CONTEXT_TYPE}
         # Detect HIP-3 market by dict lookup OR by ":" in symbol (fallback for early calls)
@@ -913,18 +926,22 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
             # For HIP-3 markets, need to use different type with dex parameter
             dex_name = exchange_symbol.split(':')[0]
             params = {"type": "metaAndAssetCtxs", "dex": dex_name}
+        try:
+            response = await safe_ensure_future(
+                self._api_post(
+                    path_url=CONSTANTS.TICKER_PRICE_CHANGE_URL,
+                    data=params
+                )
+            )
 
-        response = await self._api_post(
-            path_url=CONSTANTS.TICKER_PRICE_CHANGE_URL,
-            data=params
-        )
+            universe = response[0]["universe"]
+            asset_ctxs = response[1]
 
-        universe = response[0]["universe"]
-        asset_ctxs = response[1]
-
-        for meta, ctx in zip(universe, asset_ctxs):
-            if meta.get("name") == exchange_symbol:
-                return float(ctx["markPx"])
+            for meta, ctx in zip(universe, asset_ctxs):
+                if meta.get("name") == exchange_symbol:
+                    return float(ctx["markPx"])
+        except Exception as e:
+            self.logger().error(f"Error fetching last traded price for {trading_pair} ({exchange_symbol}): {e}")
 
         raise RuntimeError(
             f"Price not found for trading_pair={trading_pair}, "
