@@ -1,120 +1,184 @@
-![Hummingbot](https://i.ibb.co/X5zNkKw/blacklogo-with-text.png)
+![Hummingbot](https://github.com/user-attachments/assets/3213d7f8-414b-4df8-8c1b-a0cd142a82d8)
 
 ----
 [![License](https://img.shields.io/badge/License-Apache%202.0-informational.svg)](https://github.com/hummingbot/hummingbot/blob/master/LICENSE)
-[![Twitter](https://img.shields.io/twitter/follow/hummingbot_io.svg?style=social&label=hummingbot)](https://twitter.com/hummingbot_io)
-[![Discord](https://img.shields.io/discord/530578568154054663?logo=discord&logoColor=white&style=flat-square)](https://discord.gg/hummingbot/)
-[![Discourse](https://img.shields.io/discourse/https/hummingbot.discourse.group/topics.svg?style=flat-square)](https://hummingbot.discourse.group)
+[![Twitter](https://img.shields.io/twitter/url?url=https://twitter.com/_hummingbot?style=social&label=_hummingbot)](https://twitter.com/_hummingbot)
+[![Youtube](https://img.shields.io/youtube/channel/subscribers/UCxzzdEnDRbylLMWmaMjywOA)](https://www.youtube.com/@hummingbot)
+[![Discord](https://img.shields.io/discord/530578568154054663?logo=discord&logoColor=white&style=flat-square)](https://discord.gg/hummingbot)
 
-Hummingbot is an open source client-side framework that helps you build, manage, and run automated trading strategies, or **bots**. This code is free and publicly available under the Apache 2.0 open source license!
+Hummingbot is an open-source framework that helps you design and deploy automated trading strategies, or **bots**, that can run on many centralized or decentralized exchanges. Over the past year, Hummingbot users have generated over $34 billion in trading volume across 140+ unique trading venues.
 
-### [Docs](https://hummingbot.org/docs/) · [Install](https://hummingbot.org/installation/) · [FAQ](https://hummingbot.org/faq/) ·  [Developers](https://hummingbot.org/developers/) · [CEX Connectors](#centralized-exchange-connectors) · [DEX Connectors](#decentralized-exchange-connectors)
+The Hummingbot codebase is free and publicly available under the Apache 2.0 open-source license. Our mission is to **democratize high-frequency trading** by creating a global community of algorithmic traders and developers that share knowledge and contribute to the codebase.
 
-## Why Hummingbot?
+## Quick Links
 
-* **CEX and DEX connectors**: Hummingbot supports connectors to 30+ centralized exchanges and 7+ decentralized exchanges
-* **Advanced market making strategies**: Hummingbot ships with 10+ customizable strategy templates like [Cross-Exchange Market Making](https://hummingbot.org/strategies/cross-exchange-market-making/), [Avellaneda Market Making](https://hummingbot.org/strategies/avellaneda-market-making/) (based on the classic [Avellaneda & Stoikov paper](https://people.orie.cornell.edu/sfs33/LimitOrderBook.pdf)), and [Spot Perpetual Arbitrage](https://hummingbot.org/strategies/spot-perpetual-arbitrage/)
-* **Secure local client**: Hummingbot is a local client software that you install and run on your own devices or cloud virtual machines. It encrypts your API keys and private keys and never exposes them to any third parties.
-* **Community-driven**: Inspired by Linux, Hummingbot is managed by a not-for-profit foundation that enables the community to govern how the codebase evolves, using the Hummingbot Governance Token (HBOT).
-
-Help us **democratize high-frequency trading** and make powerful trading algorithms accessible to everyone in the world!
-
-## Certified Cryptocurrency Exchanges
-
-[Hummingbot's Exchange Certification](https://hummingbot.org/maintenance/certification/) program is a community-driven process that selects certain exchanges in the Hummingbot codebase to be certified. Certified exchanges are clearly differentiated from non-certified exchanges in the Hummingbot client and documentation, get developer bounties to fund bug fixes and improvements, priority support, and other benefits.
-
-| logo                                                                           | name                                                                      |                                           docs (by connector type)                                           |                                                                 certified                                                                 | signup code                                                                                                                                        |
-|--------------------------------------------------------------------------------|---------------------------------------------------------------------------|:------------------------------------------------------------------------------------------------------------:|:-----------------------------------------------------------------------------------------------------------------------------------------:|----------------------------------------------------------------------------------------------------------------------------------------------------|
-| <img src="assets/ascendex-logo.jpg" alt="AscendEx" width="90" />               | [AscendEx](https://ascendex.com/register?inviteCode=UEIXNXKW)             |                             [spot](https://hummingbot.org/exchanges/ascend-ex/)                              | [![Hummingbot Certified](https://img.shields.io/badge/Hummingbot-Certified-green.svg)](https://hummingbot.org/maintenance/certification/) | [UEIXNXKW](https://ascendex.com/register?inviteCode=UEIXNXKW) ![](https://img.shields.io/static/v1?label=Fee&message=%2d10%25&color=orange)        |
-| <img src="assets/binance-logo.jpg" alt="Binance" width="90" />                 | [Binance](https://www.binance.com/en/register?ref=FQQNNGCD)               |                              [spot](https://hummingbot.org/exchanges/binance/)                               | [![Hummingbot Certified](https://img.shields.io/badge/Hummingbot-Certified-green.svg)](https://hummingbot.org/maintenance/certification/) | [FQQNNGCD](https://www.binance.com/en/register?ref=FQQNNGCD)                                                                                       |
-| <img src="assets/binance_futures-logo.jpg" alt="Binance Futures" width="90" /> | [Binance Futures](https://www.binance.com/en/futures/ref?code=hummingbot) |                         [perps](https://hummingbot.org/exchanges/binance-perpetual/)                         | [![Hummingbot Certified](https://img.shields.io/badge/Hummingbot-Certified-green.svg)](https://hummingbot.org/maintenance/certification/) | [hummingbot](https://www.binance.com/en/futures/ref?code=hummingbot) ![](https://img.shields.io/static/v1?label=Fee&message=%2d10%25&color=orange) |
-| <img src="assets/bybit-logo.jpg" alt="Bybit" width="90" />                     | [Bybit](https://www.bybit.com/)                                           | [spot](https://hummingbot.org/exchanges/bybit/) / [perps](https://hummingbot.org/exchanges/bybit-perpetual/) | [![Hummingbot Certified](https://img.shields.io/badge/Hummingbot-Certified-green.svg)](https://hummingbot.org/maintenance/certification/) |                                                                                                                                                    |
-| <img src="assets/gate-io-logo.jpg" alt="Gate.io" width="90" />                 | [Gate.io](https://www.gate.io/signup/5868285)                             |                              [spot](https://hummingbot.org/exchanges/gate-io/)                               | [![Hummingbot Certified](https://img.shields.io/badge/Hummingbot-Certified-green.svg)](https://hummingbot.org/maintenance/certification/) | [5868285](https://www.gate.io/signup/5868285) ![](https://img.shields.io/static/v1?label=Fee&message=%2d10%25&color=orange)                        |
-| <img src="assets/hitbtc-logo.jpg" alt="HitBTC" width="90" />                   | [HitBTC](https://hitbtc.com/)                                             |                               [spot](https://hummingbot.org/exchanges/hitbtc/)                               | [![Hummingbot Certified](https://img.shields.io/badge/Hummingbot-Certified-green.svg)](https://hummingbot.org/maintenance/certification/) |                                                                                                                                                    |
-| <img src="assets/huobi_global-logo.jpg" alt="Huobi Global" width="90" />       | [Huobi Global](https://www.huobi.com/register/?invite_code=en9k2223)      |                               [spot](https://hummingbot.org/exchanges/huobi/)                                | [![Hummingbot Certified](https://img.shields.io/badge/Hummingbot-Certified-green.svg)](https://hummingbot.org/maintenance/certification/) | [en9k2223](https://www.huobi.com/register/?invite_code=en9k2223)                                                                                   |
-| <img src="assets/kucoin-logo.jpg" alt="KuCoin" width="90" />                   | [KuCoin](https://www.kucoin.com/ucenter/signup?rcode=272KvRf)             |                               [spot](https://hummingbot.org/exchanges/kucoin/)                               | [![Hummingbot Certified](https://img.shields.io/badge/Hummingbot-Certified-green.svg)](https://hummingbot.org/maintenance/certification/) | [272KvRf](https://www.kucoin.com/ucenter/signup?rcode=272KvRf)                                                                                     |
-| <img src="assets/okex-logo.jpg" alt="OKEx" width="90" />                       | [OKX](https://www.okx.com/join/1931920)                                   |                                [spot](https://hummingbot.org/exchanges/okx/)                                 | [![Hummingbot Certified](https://img.shields.io/badge/Hummingbot-Certified-green.svg)](https://hummingbot.org/maintenance/certification/) | [1931920](https://www.okx.com/join/1931920) ![](https://img.shields.io/static/v1?label=Fee&message=%2d10%25&color=orange)                          |
-
-## Supported Centralized Exchange Connectors
-
-| logo                                                                                     | name                                                                      |                                              docs (by connector type)                                              |                                                                 certified                                                                 | signup code                                                                                                                                        |
-|------------------------------------------------------------------------------------------|---------------------------------------------------------------------------|:------------------------------------------------------------------------------------------------------------------:|:-----------------------------------------------------------------------------------------------------------------------------------------:|----------------------------------------------------------------------------------------------------------------------------------------------------|
-| <img src="assets/altmarkets_logo1.png" alt="AltMarkets.io" width="90" />                 | [AltMarkets.io](https://altmarkets.io/)                                   |                                [spot](https://hummingbot.org/exchanges/altmarkets/)                                |                                                                                                                                           |                                                                                                                                                    |
-| <img src="assets/ascendex-logo.jpg" alt="AscendEx" width="90" />                         | [AscendEx](https://ascendex.com/register?inviteCode=UEIXNXKW)             |                                [spot](https://hummingbot.org/exchanges/ascend-ex/)                                 | [![Hummingbot Certified](https://img.shields.io/badge/Hummingbot-Certified-green.svg)](https://hummingbot.org/maintenance/certification/) | [UEIXNXKW](https://ascendex.com/register?inviteCode=UEIXNXKW) ![](https://img.shields.io/static/v1?label=Fee&message=%2d10%25&color=orange)        |
-| <img src="assets/beaxy-logo.png" alt="Beaxy" width="90" />                               | [Beaxy](https://beaxy.com/)                                               |                                  [spot](https://hummingbot.org/exchanges/beaxy/)                                   |                                                                                                                                           |                                                                                                                                                    |
-| <img src="assets/binance-logo.jpg" alt="Binance" width="90" />                           | [Binance](https://www.binance.com/en/register?ref=FQQNNGCD)               |                                 [spot](https://hummingbot.org/exchanges/binance/)                                  | [![Hummingbot Certified](https://img.shields.io/badge/Hummingbot-Certified-green.svg)](https://hummingbot.org/maintenance/certification/) | [FQQNNGCD](https://www.binance.com/en/register?ref=FQQNNGCD)                                                                                       |
-| <img src="assets/binance_futures-logo.jpg" alt="Binance Futures" width="90" />           | [Binance Futures](https://www.binance.com/en/futures/ref?code=hummingbot) |                            [perps](https://hummingbot.org/exchanges/binance-perpetual/)                            | [![Hummingbot Certified](https://img.shields.io/badge/Hummingbot-Certified-green.svg)](https://hummingbot.org/maintenance/certification/) | [hummingbot](https://www.binance.com/en/futures/ref?code=hummingbot) ![](https://img.shields.io/static/v1?label=Fee&message=%2d10%25&color=orange) |
-| <img src="assets/binance_us-logo.jpg" alt="Binance US" width="90" />                     | [Binance US](https://www.binance.com/)                                    |                                [spot](https://hummingbot.org/exchanges/binance-us/)                                |                                                                                                                                           |                                                                                                                                                    |
-| <img src="assets/bitfinex-logo.jpg" alt="Bitfinex" width="90" />                         | [Bitfinex](https://bitfinex.com/?refcode=dxCUrjvc)                        |                                 [spot](https://hummingbot.org/exchanges/bitfinex/)                                 |                                                                                                                                           | [dxCUrjvc](https://bitfinex.com/?refcode=dxCUrjvc)                                                                                                 |
-| <img src="assets/bitget-logo.png" alt="Bitget" width="90" />                             | [Bitget](https://www.bitget.com/)                                         |                              [perps](https://bitgetlimited.github.io/apidoc/en/mix/)                               |                                                                                                                                           |                                                                                                                                                    |
-| <img src="assets/bitmart-logo.jpg" alt="BitMart" width="90" />                           | [BitMart](https://www.bitmart.com/en?r=UM6fQV)                            |                                 [spot](https://hummingbot.org/exchanges/bitmart/)                                  |                                                                                                                                           | [UM6fQV](https://www.bitmart.com/en?r=UM6fQV)                                                                                                      |
-| <img src="assets/bitmex-logo.png" alt="Bitmex" width="90" />                             | [Bitmex](https://www.bitmex.com/)                                         |   [spot](https://hummingbot.org/exchanges/bitmex/) / [perps](https://hummingbot.org/exchanges/bitmex-perpetual/)   |                                                                                                                                           |                                                                                                                                                    |
-| <img src="assets/bittrex_global-logo.jpg" alt="Bittrex Global" width="90" height="30" /> | [Bittrex Global](https://global.bittrex.com/)                             |                                 [spot](https://hummingbot.org/exchanges/bittrex/)                                  |                                                                                                                                           |                                                                                                                                                    |
-| <img src="assets/blocktane-logo.jpg" alt="Blocktane" width="90" />                       | [Blocktane](https://blocktane.io/)                                        |                                [spot](https://hummingbot.org/exchanges/blocktane/)                                 |                                                                                                                                           |                                                                                                                                                    |
-| <img src="assets/btcmarkets-logo.jpg" alt="BTC Markets" width="90" />                    | [BTC Markets](https://www.btcmarkets.net/)                                |                                      [spot](https://docs.btcmarkets.net/v3/)                                       |                                                                                                                                           |                                                                                                                                                    |
-| <img src="assets/bybit-logo.jpg" alt="Bybit" width="90" />                               | [Bybit](https://www.bybit.com/)                                           |    [spot](https://hummingbot.org/exchanges/bybit/) / [perps](https://hummingbot.org/exchanges/bybit-perpetual/)    | [![Hummingbot Certified](https://img.shields.io/badge/Hummingbot-Certified-green.svg)](https://hummingbot.org/maintenance/certification/) |                                                                                                                                                    |
-| <img src="assets/coinbase_pro-logo.jpg" alt="Coinbase Pro" width="90" />                 | [Coinbase Pro](https://pro.coinbase.com/)                                 |                                 [spot](https://hummingbot.org/exchanges/coinbase/)                                 |                                                                                                                                           |                                                                                                                                                    |
-| <img src="assets/coinflex_logo.png" alt="CoinFLEX" width="90" />                         | [CoinFLEX](https://coinflex.com/)                                         | [spot](https://hummingbot.org/exchanges/coinflex/) / [perps](https://hummingbot.org/exchanges/coinflex-perpetual/) |                                                                                                                                           |                                                                                                                                                    |
-| <img src="assets/coinzoom-logo.jpg" alt="CoinZoom" width="90" />                         | [CoinZoom](https://trade.coinzoom.com)                                    |                                 [spot](https://hummingbot.org/exchanges/coinzoom/)                                 |                                                                                                                                           |                                                                                                                                                    |
-| <img src="assets/cryptocom-logo.jpg" alt="Crypto.com" width="90" />                      | [Crypto.com](https://crypto.com/exchange)                                 |                                [spot](https://hummingbot.org/exchanges/crypto-com/)                                |                                                                                                                                           |                                                                                                                                                    |
-| <img src="assets/digifinex-logo.jpg" alt="Digifinex" width="90" />                       | [Digifinex](https://www.digifinex.com/en-ww)                              |                                [spot](https://hummingbot.org/exchanges/digifinex/)                                 |                                                                                                                                           |                                                                                                                                                    |
-| <img src="assets/ftx-logo.jpg" alt="FTX" width="90" />                                   | [FTX](https://ftx.com/en)                                                 |                                   [spot](https://hummingbot.org/exchanges/ftx/)                                    | [![Hummingbot Certified](https://img.shields.io/badge/Hummingbot-Certified-green.svg)](https://hummingbot.org/maintenance/certification/) |                                                                                                                                                    |
-| <img src="assets/gate-io-logo.jpg" alt="Gate.io" width="90" />                           | [Gate.io](https://www.gate.io/signup/5868285)                             |                                 [spot](https://hummingbot.org/exchanges/gate-io/)                                  | [![Hummingbot Certified](https://img.shields.io/badge/Hummingbot-Certified-green.svg)](https://hummingbot.org/maintenance/certification/) | [5868285](https://www.gate.io/signup/5868285) ![](https://img.shields.io/static/v1?label=Fee&message=%2d10%25&color=orange)                        |
-| <img src="assets/hitbtc-logo.jpg" alt="HitBTC" width="90" />                             | [HitBTC](https://hitbtc.com/)                                             |                                  [spot](https://hummingbot.org/exchanges/hitbtc/)                                  | [![Hummingbot Certified](https://img.shields.io/badge/Hummingbot-Certified-green.svg)](https://hummingbot.org/maintenance/certification/) |                                                                                                                                                    |
-| <img src="assets/huobi_global-logo.jpg" alt="Huobi Global" width="90" />                 | [Huobi Global](https://www.huobi.com/register/?invite_code=en9k2223)      |                                  [spot](https://hummingbot.org/exchanges/huobi/)                                   | [![Hummingbot Certified](https://img.shields.io/badge/Hummingbot-Certified-green.svg)](https://hummingbot.org/maintenance/certification/) | [en9k2223](https://www.huobi.com/register/?invite_code=en9k2223)                                                                                   |
-| <img src="assets/kraken-logo.jpg" alt="Kraken" width="90" />                             | [Kraken](https://www.kraken.com/)                                         |                                  [spot](https://hummingbot.org/exchanges/kraken/)                                  |                                                                                                                                           |                                                                                                                                                    |
-| <img src="assets/kucoin-logo.jpg" alt="KuCoin" width="90" />                             | [KuCoin](https://www.kucoin.com/ucenter/signup?rcode=272KvRf)             |                                  [spot](https://hummingbot.org/exchanges/kucoin/)                                  | [![Hummingbot Certified](https://img.shields.io/badge/Hummingbot-Certified-green.svg)](https://hummingbot.org/maintenance/certification/) | [272KvRf](https://www.kucoin.com/ucenter/signup?rcode=272KvRf)                                                                                     |
-| <img src="assets/latoken-logo.png" alt="Latoken" width="90" />                           | [Latoken](https://latoken.com/)                                           |                                 [spot](https://hummingbot.org/exchanges/latoken/)                                  |                                                                                                                                           |                                                                                                                                                    |
-| <img src="assets/liquid-logo.jpg" alt="Liquid" width="90" />                             | [Liquid](https://www.liquid.com/)                                         |                                  [spot](https://hummingbot.org/exchanges/liquid/)                                  |                                                                                                                                           |                                                                                                                                                    |
-| <img src="assets/mexc.jpg" alt="MEXC" width="90" />                                      | [MEXC Global](https://www.mexc.com/)                                      |                                   [spot](https://hummingbot.org/exchanges/mexc/)                                   |                                                                                                                                           |                                                                                                                                                    |
-| <img src="assets/ndax-logo.jpg" alt="NDAX" width="90" />                                 | [NDAX](https://ndax.io/)                                                  |                                   [spot](https://hummingbot.org/exchanges/ndax/)                                   |                                                                                                                                           |                                                                                                                                                    |
-| <img src="assets/okex-logo.jpg" alt="OKEx" width="90" />                                 | [OKX](https://www.okx.com/join/1931920)                                   |                                   [spot](https://hummingbot.org/exchanges/okx/)                                    | [![Hummingbot Certified](https://img.shields.io/badge/Hummingbot-Certified-green.svg)](https://hummingbot.org/maintenance/certification/) | [1931920](https://www.okx.com/join/1931920) ![](https://img.shields.io/static/v1?label=Fee&message=%2d10%25&color=orange)                          |
-| <img src="assets/probit-logo.jpg" alt="Probit Global" width="90" />                      | [Probit Global](https://www.probit.com/)                                  |                                  [spot](https://hummingbot.org/exchanges/probit/)                                  |                                                                                                                                           |                                                                                                                                                    |
-| <img src="assets/probit_kr-logo.jpg" alt="Probit Korea" width="90" />                    | [Probit Korea](https://www.probit.kr/en-us/)                              |                               [spot](https://hummingbot.org/exchanges/probit-korea/)                               |                                                                                                                                           |                                                                                                                                                    |
-| <img src="assets/wazirX-logo.jpg" alt="Wazirx" width="90" />                             | [WazirX](https://wazirx.com/)                                             |                                  [spot](https://hummingbot.org/exchanges/wazirx/)                                  |                                                                                                                                           |                                                                                                                                                    |
-
-## Decentralized Exchange Connectors
-
-| logo                                                               | name                                     |                            docs (by connector type)                             | certified | signup code |
-|--------------------------------------------------------------------|------------------------------------------|:-------------------------------------------------------------------------------:|:---------:|-------------|
-| <img src="assets/dydx-logo.jpg" alt="dYdX Perpetual" width="90" /> | [dYdX Perpetual](https://dydx.exchange/) |          [perp clob](https://hummingbot.org/exchanges/dydx-perpetual/)          |           |             |
-| <img src="assets/loopring-logo.jpg" alt="Loopring" width="90" />   | [Loopring](https://loopring.io/)         |             [spot clob](https://hummingbot.org/exchanges/loopring/)             |           |             |
-| <img src="assets/pangolin-logo.jpg" alt="Pangolin" width="90" />   | [Pangolin](https://pangolin.exchange/)   |            [amm](https://hummingbot.org/gateway/exchanges/pangolin/)            |           |             |
-| <img src="assets/quickswap-logo.png" alt="Quickswap" width="90" /> | [Quickswap](https://quickswap.exchange)  |           [amm](https://hummingbot.org/gateway/exchanges/quickswap/)            |           |             |
-| <img src="assets/sushiswap-logo.jpg" alt="Sushiswap" width="90" /> | [Sushiswap](https://sushi.com/)          |           [amm](https://hummingbot.org/gateway/exchanges/sushiswap/)            |           |             |
-| <img src="assets/traderjoe-logo.png" alt="Traderjoe" width="80" /> | [TraderJoe](https://traderjoexyz.com/)   |           [amm](https://hummingbot.org/gateway/exchanges/traderjoe/)            |           |             |
-| <img src="assets/uniswap-logo.jpg" alt="Uniswap" width="90" />     | [Uniswap](https://uniswap.org/)          | [concentrated liquidity amm](https://hummingbot.org/gateway/exchanges/uniswap/) |           |             |
+* [Website and Docs](https://hummingbot.org): Official Hummingbot website and documentation
+* [Installation](https://hummingbot.org/installation/docker/): Install Hummingbot on various platforms
+* [Discord](https://discord.gg/hummingbot): The main gathering spot for the global Hummingbot community
+* [YouTube](https://www.youtube.com/c/hummingbot): Videos that teach you how to get the most out of Hummingbot
+* [Twitter](https://twitter.com/_hummingbot): Get the latest announcements about Hummingbot
+* [Reported Volumes](https://p.datadoghq.com/sb/a96a744f5-a15479d77992ccba0d23aecfd4c87a52): Reported trading volumes across all Hummingbot instances
+* [Newsletter](https://hummingbot.substack.com): Get our newsletter whenever we ship a new release
 
 ## Getting Started
 
-- [Website](https://hummingbot.org)
-- [Docs](https://hummingbot.org/docs)
-- [FAQs](https://hummingbot.org/faq/)
-- [Installation](https://hummingbot.org/installation/)
-- [Developers](https://hummingbot.org/developers/)
+The easiest way to get started with Hummingbot is using Docker:
 
-### Community
+* To install the Telegram Bot [Condor](https://github.com/hummingbot/condor), follow the instructions in the [Hummingbot Docs](https://hummingbot.org/condor/installation/) site.
 
-- [Discord](https://discord.gg/hummingbot)
-- [Youtube](https://www.youtube.com/c/hummingbot)
-- [Twitter](https://twitter.com/hummingbot_io)
-- [Reddit](https://www.reddit.com/r/Hummingbot/)
-- [Forum](https://hummingbot.discourse.group/)
+* To install the CLI-based Hummingbot client, follow the instructions below.
+
+Alternatively, if you are building new connectors/strategies or adding custom code, see the [Install from Source](https://hummingbot.org/client/installation/#source-installation) section in the documentation.
+
+### Install Hummingbot with Docker
+
+Install [Docker Compose website](https://docs.docker.com/compose/install/).
+
+Clone the repo and use the provided `docker-compose.yml` file:
+
+```bash
+# Clone the repository
+git clone https://github.com/hummingbot/hummingbot.git
+cd hummingbot
+
+# Run Setup & Deploy
+make setup
+make deploy
+
+# Attach to the running instance
+docker attach hummingbot
+```
+
+### Install Hummingbot + Gateway DEX Middleware
+
+Gateway provides standardized connectors for interacting with automatic market maker (AMM) decentralized exchanges (DEXs) across different blockchain networks.
+
+To run Hummingbot with Gateway, clone the repo and answer `y` when prompted after running `make setup`
+
+```yaml
+# Clone the repository
+git clone https://github.com/hummingbot/hummingbot.git
+cd hummingbot
+```
+```bash
+make setup
+
+# Answer `y` when prompted
+Include Gateway? [y/N]
+```
+
+Then run:
+```bash
+make deploy
+
+# Attach to the running instance
+docker attach hummingbot
+```
+
+By default, Gateway will start in development mode with unencrypted HTTP endpoints. To run in production model with encrypted HTTPS, use the `DEV=false` flag and run `gateway generate-certs` in Hummingbot to generate the certificates needed. See [Development vs Production Modes](http://hummingbot.org/gateway/installation/#development-vs-production-modes) for more information.
+
+---
+
+For comprehensive installation instructions and troubleshooting, visit our [Installation](https://hummingbot.org/installation/) documentation.
+
+## Getting Help
+
+If you encounter issues or have questions, here's how you can get assistance:
+
+* Consult our [FAQ](https://hummingbot.org/faq/), [Troubleshooting Guide](https://hummingbot.org/troubleshooting/), or [Glossary](https://hummingbot.org/glossary/)
+* To report bugs or suggest features, submit a [Github issue](https://github.com/hummingbot/hummingbot/issues)
+* Join our [Discord community](https://discord.gg/hummingbot) and ask questions in the #support channel
+
+We pledge that we will not use the information/data you provide us for trading purposes nor share them with third parties.
+
+## Exchange Connectors
+
+Hummingbot connectors standardize REST and WebSocket API interfaces to different types of exchanges, enabling you to build sophisticated trading strategies that can be deployed across many exchanges with minimal changes.
+
+### Connector Types
+
+We classify exchange connectors into three main categories:
+
+* **CLOB CEX**: Centralized exchanges with central limit order books that take custody of your funds. Connect via API keys.
+  - **Spot**: Trading spot markets
+  - **Perpetual**: Trading perpetual futures markets
+
+* **CLOB DEX**: Decentralized exchanges with on-chain central limit order books. Non-custodial, connect via wallet keys.
+  - **Spot**: Trading spot markets on-chain
+  - **Perpetual**: Trading perpetual futures on-chain
+
+* **AMM DEX**: Decentralized exchanges using Automated Market Maker protocols. Non-custodial, connect via Gateway middleware.
+  - **Router**: DEX aggregators that find optimal swap routes
+  - **AMM**: Traditional constant product (x*y=k) pools
+  - **CLMM**: Concentrated Liquidity Market Maker pools with custom price ranges
+
+### Exchange Sponsors
+
+We are grateful for the following exchanges that support the development and maintenance of Hummingbot via broker partnerships and sponsorships.
+
+| Exchange | Type | Sub-Type(s) | Connector ID(s) | Discount |
+|------|------|------|-------|----------|
+| [Binance](https://hummingbot.org/exchanges/binance/) | CLOB CEX | Spot, Perpetual | `binance`, `binance_perpetual` | [![Sign up for Binance using Hummingbot's referral link for a 10% discount!](https://img.shields.io/static/v1?label=Fee&message=%2d10%25&color=orange)](https://accounts.binance.com/register?ref=CBWO4LU6) |
+| [BitMart](https://hummingbot.org/exchanges/bitmart/) | CLOB CEX | Spot, Perpetual | `bitmart`, `bitmart_perpetual` | [![Sign up for BitMart using Hummingbot's referral link!](https://img.shields.io/static/v1?label=Sponsor&message=Link&color=orange)](https://www.bitmart.com/invite/Hummingbot/en) |
+| [Bitget](https://hummingbot.org/exchanges/bitget/) | CLOB CEX | Spot, Perpetual | `bitget`, `bitget_perpetual` | [![Sign up for Bitget using Hummingbot's referral link!](https://img.shields.io/static/v1?label=Sponsor&message=Link&color=orange)](https://www.bitget.com/expressly?channelCode=v9cb&vipCode=26rr&languageType=0) |
+| [Derive](https://hummingbot.org/exchanges/derive/) | CLOB DEX | Spot, Perpetual | `derive`, `derive_perpetual` | [![Sign up for Derive using Hummingbot's referral link!](https://img.shields.io/static/v1?label=Sponsor&message=Link&color=orange)](https://www.derive.xyz/invite/7SA0V) |
+| [dYdX](https://hummingbot.org/exchanges/dydx/) | CLOB DEX | Perpetual | `dydx_v4_perpetual` | - |
+| [Gate.io](https://hummingbot.org/exchanges/gate-io/) | CLOB CEX | Spot, Perpetual | `gate_io`, `gate_io_perpetual` | [![Sign up for Gate.io using Hummingbot's referral link for a 20% discount!](https://img.shields.io/static/v1?label=Fee&message=%2d20%25&color=orange)](https://www.gate.io/referral/invite/HBOTGATE_0_103) |
+| [HTX (Huobi)](https://hummingbot.org/exchanges/htx/) | CLOB CEX | Spot | `htx` | [![Sign up for HTX using Hummingbot's referral link for a 20% discount!](https://img.shields.io/static/v1?label=Fee&message=%2d20%25&color=orange)](https://www.htx.com.pk/invite/en-us/1h?invite_code=re4w9223) |
+| [Hyperliquid](https://hummingbot.org/exchanges/hyperliquid/) | CLOB DEX | Spot, Perpetual | `hyperliquid`, `hyperliquid_perpetual` | - |
+| [KuCoin](https://hummingbot.org/exchanges/kucoin/) | CLOB CEX | Spot, Perpetual | `kucoin`, `kucoin_perpetual` | [![Sign up for Kucoin using Hummingbot's referral link for a 20% discount!](https://img.shields.io/static/v1?label=Fee&message=%2d20%25&color=orange)](https://www.kucoin.com/r/af/hummingbot) |
+| [OKX](https://hummingbot.org/exchanges/okx/) | CLOB CEX | Spot, Perpetual | `okx`, `okx_perpetual` | [![Sign up for OKX using Hummingbot's referral link for a 20% discount!](https://img.shields.io/static/v1?label=Fee&message=%2d20%25&color=orange)](https://www.okx.com/join/1931920269) |
+| [XRP Ledger](https://hummingbot.org/exchanges/xrpl/) | CLOB DEX | Spot | `xrpl` | - |
+
+### Other Exchange Connectors
+
+Currently, the master branch of Hummingbot also includes the following exchange connectors, which are maintained and updated through the Hummingbot Foundation governance process. See [Governance](https://hummingbot.org/governance/) for more information.
+
+| Exchange | Type | Sub-Type(s) | Connector ID(s) | Discount |
+|------|------|------|-------|----------|
+| [0x Protocol](https://hummingbot.org/exchanges/gateway/0x/) | AMM DEX | Router | `0x` | - |
+| [AscendEx](https://hummingbot.org/exchanges/ascendex/) | CLOB CEX | Spot | `ascend_ex` | - |
+| [Balancer](https://hummingbot.org/exchanges/gateway/balancer/) | AMM DEX | AMM | `balancer` | - |
+| [BingX](https://hummingbot.org/exchanges/bing_x/) | CLOB CEX | Spot | `bing_x` | - |
+| [Bitrue](https://hummingbot.org/exchanges/bitrue/) | CLOB CEX | Spot | `bitrue` | - |
+| [Bitstamp](https://hummingbot.org/exchanges/bitstamp/) | CLOB CEX | Spot | `bitstamp` | - |
+| [BTC Markets](https://hummingbot.org/exchanges/btc-markets/) | CLOB CEX | Spot | `btc_markets` | - |
+| [Bybit](https://hummingbot.org/exchanges/bybit/) | CLOB CEX | Spot, Perpetual | `bybit`, `bybit_perpetual` | - |
+| [Coinbase](https://hummingbot.org/exchanges/coinbase/) | CLOB CEX | Spot | `coinbase_advanced_trade` | - |
+| [Cube](https://hummingbot.org/exchanges/cube/) | CLOB CEX | Spot | `cube` | - |
+| [Curve](https://hummingbot.org/exchanges/gateway/curve/) | AMM DEX | AMM | `curve` | - |
+| [Dexalot](https://hummingbot.org/exchanges/dexalot/) | CLOB DEX | Spot | `dexalot` | - |
+| [Injective Helix](https://hummingbot.org/exchanges/injective/) | CLOB DEX | Spot, Perpetual | `injective_v2`, `injective_v2_perpetual` | - |
+| [Jupiter](https://hummingbot.org/exchanges/gateway/jupiter/) | AMM DEX | Router | `jupiter` | - |
+| [Kraken](https://hummingbot.org/exchanges/kraken/) | CLOB CEX | Spot | `kraken` | - |
+| [Meteora](https://hummingbot.org/exchanges/gateway/meteora/) | AMM DEX | CLMM | `meteora` | - |
+| [MEXC](https://hummingbot.org/exchanges/mexc/) | CLOB CEX | Spot | `mexc` | - |
+| [PancakeSwap](https://hummingbot.org/exchanges/gateway/pancakeswap/) | AMM DEX | AMM | `pancakeswap` | - |
+| [QuickSwap](https://hummingbot.org/exchanges/gateway/quickswap/) | AMM DEX | AMM | `quickswap` | - |
+| [Raydium](https://hummingbot.org/exchanges/gateway/raydium/) | AMM DEX | AMM, CLMM | `raydium` | - |
+| [SushiSwap](https://hummingbot.org/exchanges/gateway/sushiswap/) | AMM DEX | AMM | `sushiswap` | - |
+| [Trader Joe](https://hummingbot.org/exchanges/gateway/traderjoe/) | AMM DEX | AMM | `traderjoe` | - |
+| [Uniswap](https://hummingbot.org/exchanges/gateway/uniswap/) | AMM DEX | Router, AMM, CLMM | `uniswap` | - |
+| [Vertex](https://hummingbot.org/exchanges/vertex/) | CLOB DEX | Spot | `vertex` | - |
 
 ## Other Hummingbot Repos
 
-- [Hummingbot Site](https://github.com/hummingbot/hummingbot-site): Official website and documentation for Hummingbot - we welcome contributions here too!
-- [Hummingbot Project Management](https://github.com/hummingbot/pm): Agendas and recordings of regular Hummingbot developer and community calls
-- [Awesome Hummingbot](https://github.com/hummingbot/awesome-hummingbot): All the Hummingbot links
-- [Hummingbot StreamLit Apps](https://github.com/hummingbot/streamlit-apps): Hummingbot-related StreamLit data apps and dashboards
+* [Condor](https://github.com/hummingbot/condor): Telegram Interface for Hummingbot
+* [Hummingbot API](https://github.com/hummingbot/hummingbot-api): The central hub for running Hummingbot trading bots
+* [Hummingbot MCP](https://github.com/hummingbot/mcp): Enables AI assistants like Claude and Gemini to interact with Hummingbot for automated cryptocurrency trading across multiple exchanges.
+* [Quants Lab](https://github.com/hummingbot/quants-lab): Jupyter notebooks that enable you to fetch data and perform research using Hummingbot
+* [Gateway](https://github.com/hummingbot/gateway): Typescript based API client for DEX connectors
+* [Hummingbot Site](https://github.com/hummingbot/hummingbot-site): Official documentation for Hummingbot - we welcome contributions here too!
 
 ## Contributions
 
-Hummingbot belongs to its community, so we welcome contributions! Please review these [guidelines](./CONTRIBUTING.md) first.
+The Hummingbot architecture features modular components that can be maintained and extended by individual community members.
 
-To have your pull request reviewed by the community, submit a [Pull Request Proposal](https://snapshot.org/#/hbot-prp.eth) on our Snapshot. Note that you will need 1 HBOT in your Ethereum wallet to submit a Pull Request Proposal. See https://www.coingecko.com/coins/hummingbot for markets where HBOT trades.
+We welcome contributions from the community! Please review these [guidelines](./CONTRIBUTING.md) before submitting a pull request.
+
+To have your exchange connector or other pull request merged into the codebase, please submit a New Connector Proposal or Pull Request Proposal, following these [guidelines](https://hummingbot.org/about/proposals/). Note that you will need some amount of [HBOT tokens](https://etherscan.io/token/0xe5097d9baeafb89f9bcb78c9290d545db5f9e9cb) in your Ethereum wallet to submit a proposal.
 
 ## Legal
 
-- **License**: Hummingbot is licensed under [Apache 2.0](./LICENSE).
-- **Data collection**: read important information regarding [Hummingbot Data Collection](./DATA_COLLECTION.md).
+* **License**: Hummingbot is open source and licensed under [Apache 2.0](./LICENSE).
+* **Data collection**: See [Reporting](https://hummingbot.org/reporting/) for information on anonymous data collection and reporting in Hummingbot.

@@ -1,6 +1,6 @@
 import asyncio
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from bidict import bidict
 
@@ -27,9 +27,6 @@ from hummingbot.core.utils.estimate_fee import build_trade_fee
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
-if TYPE_CHECKING:
-    from hummingbot.client.config.config_helpers import ClientConfigAdapter
-
 
 class AscendExExchange(ExchangePyBase):
     """
@@ -43,10 +40,11 @@ class AscendExExchange(ExchangePyBase):
 
     def __init__(
         self,
-        client_config_map: "ClientConfigAdapter",
         ascend_ex_api_key: str,
         ascend_ex_secret_key: str,
         ascend_ex_group_id: str,
+        balance_asset_limit: Optional[Dict[str, Dict[str, Decimal]]] = None,
+        rate_limits_share_pct: Decimal = Decimal("100"),
         trading_pairs: Optional[List[str]] = None,
         trading_required: bool = True,
     ):
@@ -62,7 +60,7 @@ class AscendExExchange(ExchangePyBase):
         self.ascend_ex_group_id = ascend_ex_group_id
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
-        super().__init__(client_config_map=client_config_map)
+        super().__init__(balance_asset_limit, rate_limits_share_pct)
 
         self._last_known_sequence_number = 0
 
@@ -115,7 +113,7 @@ class AscendExExchange(ExchangePyBase):
         return self._trading_required
 
     def supported_order_types(self):
-        return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
+        return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
 
     async def get_all_pairs_prices(self) -> Dict[str, Any]:
         """
@@ -134,6 +132,20 @@ class AscendExExchange(ExchangePyBase):
 
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
         # API documentation does not clarify the error message for timestamp related problems
+        return False
+
+    def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
+        # TODO: implement this method correctly for the connector
+        # The default implementation was added when the functionality to detect not found orders was introduced in the
+        # ExchangePyBase class. Also fix the unit test test_lost_order_removed_if_not_found_during_order_status_update
+        # when replacing the dummy implementation
+        return False
+
+    def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
+        # TODO: implement this method correctly for the connector
+        # The default implementation was added when the functionality to detect not found orders was introduced in the
+        # ExchangePyBase class. Also fix the unit test test_cancel_order_not_found_in_the_exchange when replacing the
+        # dummy implementation
         return False
 
     async def _api_request_url(self, path_url: str, is_auth_required: bool = False) -> str:
@@ -211,7 +223,6 @@ class AscendExExchange(ExchangePyBase):
         **kwargs,
     ) -> Tuple[str, float]:
         side = trade_type.name.lower()
-        order_type_str = "limit"
         timestamp = utils.get_ms_timestamp()
         data = {
             "time": timestamp,
@@ -219,9 +230,14 @@ class AscendExExchange(ExchangePyBase):
             "id": order_id,
             "side": side,
             "symbol": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
-            "orderType": order_type_str,
-            "orderPrice": str(price),
         }
+        if order_type.is_limit_type():
+            data["orderPrice"] = str(price)
+            data["orderType"] = "limit"
+            data["timeInForce"] = "GTC"
+        else:
+            data["orderType"] = "market"
+            data["timeInForce"] = "IOC"
         if order_type is OrderType.LIMIT_MAKER:
             data["postOnly"] = True
         exchange_order = await self._api_post(
@@ -233,7 +249,8 @@ class AscendExExchange(ExchangePyBase):
         if exchange_order.get("code") == 0:
             return (
                 str(exchange_order["data"]["info"]["orderId"]),
-                int(exchange_order["data"]["info"]["timestamp"]) * 1e-3,
+                int(exchange_order["data"]["info"].get("timestamp") or exchange_order["data"]["info"]
+                    ["lastExecTime"]) * 1e-3,
             )
         else:
             raise IOError(str(exchange_order))

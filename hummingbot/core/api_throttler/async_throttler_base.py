@@ -17,6 +17,7 @@ class AsyncThrottlerBase(ABC):
     throttling of API requests through the usage of asynchronous context managers.
     """
 
+    _default_config_map = {}
     _logger = None
 
     @classmethod
@@ -40,7 +41,7 @@ class AsyncThrottlerBase(ABC):
             bots operate with the same account)
         """
         # If configured, users can define the percentage of rate limits to allocate to the throttler.
-        share_percentage = limits_share_percentage or self._client_config_map().rate_limits_share_pct
+        share_percentage = limits_share_percentage or Decimal("100")
         self.limits_pct: Decimal = share_percentage / 100
 
         self.set_rate_limits(rate_limits)
@@ -64,6 +65,23 @@ class AsyncThrottlerBase(ABC):
 
         # Dictionary of path_url to RateLimit
         self._id_to_limit_map: Dict[str, RateLimit] = {limit.limit_id: limit for limit in self._rate_limits}
+
+    def add_rate_limits(self, rate_limits: List[RateLimit]):
+        """
+        Dynamically add new rate limits to the throttler.
+        Useful when adding trading pairs at runtime that require pair-specific rate limits.
+
+        :param rate_limits: List of RateLimit(s) to add.
+        """
+        for rate_limit in rate_limits:
+            # Skip if already exists
+            if rate_limit.limit_id in self._id_to_limit_map:
+                continue
+            # Apply the limits percentage
+            new_limit = copy.deepcopy(rate_limit)
+            new_limit.limit = max(Decimal("1"), math.floor(Decimal(str(new_limit.limit)) * self.limits_pct))
+            self._rate_limits.append(new_limit)
+            self._id_to_limit_map[new_limit.limit_id] = new_limit
 
     def _client_config_map(self):
         from hummingbot.client.hummingbot_application import HummingbotApplication  # avoids circular import

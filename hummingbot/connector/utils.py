@@ -1,4 +1,3 @@
-import base64
 import gzip
 import json
 import os
@@ -7,7 +6,7 @@ from collections import namedtuple
 from hashlib import md5
 from typing import Any, Callable, Dict, Optional, Tuple
 
-from zero_ex.order_utils import Order as ZeroExOrder
+from hexbytes import HexBytes
 
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
@@ -19,33 +18,6 @@ from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFa
 from hummingbot.core.web_assistant.ws_post_processors import WSPostProcessorBase
 
 TradeFillOrderDetails = namedtuple("TradeFillOrderDetails", "market exchange_trade_id symbol")
-
-
-def zrx_order_to_json(order: Optional[ZeroExOrder]) -> Optional[Dict[str, any]]:
-    if order is None:
-        return None
-
-    retval: Dict[str, any] = {}
-    for key, value in order.items():
-        if not isinstance(value, bytes):
-            retval[key] = value
-        else:
-            retval[f"__binary__{key}"] = base64.b64encode(value).decode("utf8")
-    return retval
-
-
-def json_to_zrx_order(data: Optional[Dict[str, any]]) -> Optional[ZeroExOrder]:
-    if data is None:
-        return None
-
-    intermediate: Dict[str, any] = {}
-    for key, value in data.items():
-        if key.startswith("__binary__"):
-            target_key = key.replace("__binary__", "")
-            intermediate[target_key] = base64.b64decode(value)
-        else:
-            intermediate[key] = value
-    return ZeroExOrder(intermediate)
 
 
 def build_api_factory(throttler: AsyncThrottlerBase) -> WebAssistantsFactory:
@@ -98,7 +70,7 @@ def get_new_client_order_id(
     quote_str = f"{quote[0]}{quote[-1]}"
     client_instance_id = _bot_instance_id()
     ts_hex = hex(get_tracking_nonce())[2:]
-    client_order_id = f"{hbot_order_id_prefix}{side}{base_str}{quote_str}{ts_hex}{client_instance_id}"
+    client_order_id = f"{hbot_order_id_prefix}{side}{base_str}{quote_str}{ts_hex}{client_instance_id}".replace("$", "")
 
     if max_id_len is not None:
         id_prefix = f"{hbot_order_id_prefix}{side}{base_str}{quote_str}"
@@ -150,3 +122,13 @@ class GZipCompressionWSPostProcessor(WSPostProcessorBase):
         msg: Dict[str, Any] = json.loads(encoded_msg.decode("utf-8"))
 
         return WSResponse(data=msg)
+
+
+def to_0x_hex(signature: HexBytes | bytes) -> str:
+    """
+    Convert a string to a 0x-prefixed hex string.
+    """
+    if hasattr(signature, "to_0x_hex"):
+        return signature.to_0x_hex()
+
+    return hex if (hex := signature.hex()).startswith("0x") else f"0x{hex}"

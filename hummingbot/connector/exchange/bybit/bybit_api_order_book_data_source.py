@@ -23,9 +23,10 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
     HEARTBEAT_TIME_INTERVAL = 30.0
     TRADE_STREAM_ID = 1
     DIFF_STREAM_ID = 2
-    ONE_HOUR = 60 * 60
 
     _logger: Optional[HummingbotLogger] = None
+    _DYNAMIC_SUBSCRIBE_ID_START = 100
+    _next_subscribe_id: int = _DYNAMIC_SUBSCRIBE_ID_START
     _trading_pair_symbol_map: Dict[str, Mapping[str, str]] = {}
     _mapping_initialization_lock = asyncio.Lock()
 
@@ -38,7 +39,6 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
                  time_synchronizer: Optional[TimeSynchronizer] = None):
         super().__init__(trading_pairs)
         self._connector = connector
-        self._diff_messages_queue_key = CONSTANTS.DIFF_EVENT_TYPE
         self._domain = domain
         self._time_synchronizer = time_synchronizer
         self._throttler = throttler
@@ -49,6 +49,8 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
         )
         self._message_queue: Dict[str, asyncio.Queue] = defaultdict(asyncio.Queue)
         self._last_ws_message_sent_timestamp = 0
+        self._category = "spot"
+        self._depth = CONSTANTS.SPOT_ORDER_BOOK_DEPTH
 
     async def get_last_traded_prices(self,
                                      trading_pairs: List[str],
@@ -64,17 +66,20 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
         :return: the response from the exchange (JSON dictionary)
         """
         params = {
+            "category": self._category,
             "symbol": await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
             "limit": "1000"
         }
-        data = await self._connector._api_request(path_url=CONSTANTS.SNAPSHOT_PATH_URL,
-                                                  method=RESTMethod.GET,
-                                                  params=params)
+        data = await self._connector._api_request(
+            path_url=CONSTANTS.SNAPSHOT_PATH_URL,
+            method=RESTMethod.GET,
+            params=params
+        )
         return data['result']
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         snapshot: Dict[str, Any] = await self._request_order_book_snapshot(trading_pair)
-        snapshot_timestamp: float = float(snapshot["time"]) * 1e-3
+        snapshot_timestamp: float = float(snapshot["ts"]) * 1e-3
         snapshot_msg: OrderBookMessage = BybitOrderBook.snapshot_message_from_exchange_rest(
             snapshot,
             snapshot_timestamp,
@@ -83,18 +88,25 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return snapshot_msg
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=raw_message["symbol"])
-        for trades in raw_message["data"]:
+        data = raw_message["data"]
+        for trade in data:
+            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=trade["s"])
             trade_message: OrderBookMessage = BybitOrderBook.trade_message_from_exchange(
-                trades, {"trading_pair": trading_pair})
+                trade,
+                {"trading_pair": trading_pair}
+            )
             message_queue.put_nowait(trade_message)
 
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=raw_message["symbol"])
-        for diff_message in raw_message["data"]:
-            order_book_message: OrderBookMessage = BybitOrderBook.diff_message_from_exchange(
-                diff_message, diff_message["t"], {"trading_pair": trading_pair})
-            message_queue.put_nowait(order_book_message)
+        trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(
+            symbol=raw_message["data"]["s"]
+        )
+        order_book_message: OrderBookMessage = BybitOrderBook.diff_message_from_exchange(
+            raw_message['data'],
+            raw_message["ts"] * 1e-3,
+            {"trading_pair": trading_pair}
+        )
+        message_queue.put_nowait(order_book_message)
 
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
         """
@@ -106,7 +118,7 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         while True:
             try:
-                await asyncio.wait_for(self._process_ob_snapshot(snapshot_queue=output), timeout=self.ONE_HOUR)
+                await asyncio.wait_for(self._process_ob_snapshot(snapshot_queue=output), timeout=CONSTANTS.ONE_HOUR)
             except asyncio.TimeoutError:
                 await self._take_full_order_book_snapshot(trading_pairs=self._trading_pairs, snapshot_queue=output)
             except asyncio.CancelledError:
@@ -125,7 +137,8 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
         while True:
             try:
                 ws: WSAssistant = await self._api_factory.get_ws_assistant()
-                await ws.connect(ws_url=CONSTANTS.WSS_V1_PUBLIC_URL[self._domain])
+                await ws.connect(ws_url=CONSTANTS.WSS_PUBLIC_URL[self._domain])
+                self._ws_assistant = ws  # Store for dynamic subscriptions
                 await self._subscribe_channels(ws)
                 self._last_ws_message_sent_timestamp = self._time()
 
@@ -137,7 +150,7 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     except asyncio.TimeoutError:
                         ping_time = self._time()
                         payload = {
-                            "ping": int(ping_time * 1e3)
+                            "op": "ping"
                         }
                         ping_request = WSJSONRequest(payload=payload)
                         await ws.send(request=ping_request)
@@ -151,6 +164,7 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 )
                 await self._sleep(5.0)
             finally:
+                self._ws_assistant = None
                 ws and await ws.disconnect()
 
     async def _subscribe_channels(self, ws: WSAssistant):
@@ -161,30 +175,24 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
         try:
             for trading_pair in self._trading_pairs:
                 symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+                trade_topic = self._get_trade_topic_from_symbol(symbol)
                 trade_payload = {
-                    "topic": "trade",
-                    "event": "sub",
-                    "symbol": symbol,
-                    "params": {
-                        "binary": False
-                    }
+                    "op": "subscribe",
+                    "args": [trade_topic]
                 }
                 subscribe_trade_request: WSJSONRequest = WSJSONRequest(payload=trade_payload)
 
-                depth_payload = {
-                    "topic": "diffDepth",
-                    "event": "sub",
-                    "symbol": symbol,
-                    "params": {
-                        "binary": False
-                    }
+                orderbook_topic = self._get_ob_topic_from_symbol(symbol, self._depth)
+                orderbook_payload = {
+                    "op": "subscribe",
+                    "args": [orderbook_topic]
                 }
-                subscribe_orderbook_request: WSJSONRequest = WSJSONRequest(payload=depth_payload)
+                subscribe_orderbook_request: WSJSONRequest = WSJSONRequest(payload=orderbook_payload)
 
                 await ws.send(subscribe_trade_request)
                 await ws.send(subscribe_orderbook_request)
 
-                self.logger().info(f"Subscribed to public order book and trade channels of {trading_pair}...")
+                self.logger().info("Subscribed to public order book and trade channels...")
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -197,26 +205,36 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def _process_ws_messages(self, ws: WSAssistant):
         async for ws_response in ws.iter_messages():
             data = ws_response.data
-            if data.get("msg") == "Success":
+            if data.get("op") == "subscribe":
+                if data.get("success") is False:
+                    self.logger().error(
+                        "Unexpected error occurred subscribing to order book trading and delta streams...",
+                        exc_info=True
+                    )
                 continue
-            event_type = data.get("topic")
-            if event_type == CONSTANTS.DIFF_EVENT_TYPE:
-                if data.get("f"):
-                    self._message_queue[CONSTANTS.SNAPSHOT_EVENT_TYPE].put_nowait(data)
-                else:
-                    self._message_queue[CONSTANTS.DIFF_EVENT_TYPE].put_nowait(data)
-            elif event_type == CONSTANTS.TRADE_EVENT_TYPE:
-                self._message_queue[CONSTANTS.TRADE_EVENT_TYPE].put_nowait(data)
+            event_type = data.get("type")
+            topic = data.get("topic")
+            if event_type == CONSTANTS.TRADE_EVENT_TYPE and "publicTrade" in topic:
+                channel = self._trade_messages_queue_key
+            elif event_type == CONSTANTS.ORDERBOOK_SNAPSHOT_EVENT_TYPE and "orderbook" in topic:
+                channel = self._snapshot_messages_queue_key
+            elif event_type == CONSTANTS.ORDERBOOK_DIFF_EVENT_TYPE and "orderbook" in topic:
+                channel = self._diff_messages_queue_key
+            else:
+                channel = None
+            if channel:
+                self._message_queue[channel].put_nowait(data)
 
     async def _process_ob_snapshot(self, snapshot_queue: asyncio.Queue):
-        message_queue = self._message_queue[CONSTANTS.SNAPSHOT_EVENT_TYPE]
+        message_queue = self._message_queue[self._snapshot_messages_queue_key]
         while True:
             try:
                 json_msg = await message_queue.get()
+                data = json_msg["data"]
                 trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(
-                    symbol=json_msg["symbol"])
+                    symbol=data["s"])
                 order_book_message: OrderBookMessage = BybitOrderBook.snapshot_message_from_exchange_websocket(
-                    json_msg["data"][0], json_msg["data"][0], {"trading_pair": trading_pair})
+                    data, json_msg["ts"], {"trading_pair": trading_pair})
                 snapshot_queue.put_nowait(order_book_message)
             except asyncio.CancelledError:
                 raise
@@ -228,7 +246,7 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
         for trading_pair in trading_pairs:
             try:
                 snapshot: Dict[str, Any] = await self._request_order_book_snapshot(trading_pair=trading_pair)
-                snapshot_timestamp: float = float(snapshot["time"]) * 1e-3
+                snapshot_timestamp: float = float(snapshot["ts"]) * 1e-3
                 snapshot_msg: OrderBookMessage = BybitOrderBook.snapshot_message_from_exchange_rest(
                     snapshot,
                     snapshot_timestamp,
@@ -245,3 +263,98 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     def _time(self):
         return time.time()
+
+    def _get_trade_topic_from_symbol(self, symbol: str) -> str:
+        return f"publicTrade.{symbol}"
+
+    def _get_ob_topic_from_symbol(self, symbol: str, depth: int) -> str:
+        return f"orderbook.{depth}.{symbol}"
+
+    async def subscribe_to_trading_pair(self, trading_pair: str) -> bool:
+        """
+        Subscribes to order book and trade channels for a single trading pair
+        on the existing WebSocket connection.
+
+        :param trading_pair: the trading pair to subscribe to
+        :return: True if subscription was successful, False otherwise
+        """
+        if self._ws_assistant is None:
+            self.logger().warning(
+                f"Cannot subscribe to {trading_pair}: WebSocket not connected"
+            )
+            return False
+
+        try:
+            symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+
+            trade_topic = self._get_trade_topic_from_symbol(symbol)
+            trade_payload = {
+                "op": "subscribe",
+                "args": [trade_topic]
+            }
+            subscribe_trade_request: WSJSONRequest = WSJSONRequest(payload=trade_payload)
+
+            orderbook_topic = self._get_ob_topic_from_symbol(symbol, self._depth)
+            orderbook_payload = {
+                "op": "subscribe",
+                "args": [orderbook_topic]
+            }
+            subscribe_orderbook_request: WSJSONRequest = WSJSONRequest(payload=orderbook_payload)
+
+            await self._ws_assistant.send(subscribe_trade_request)
+            await self._ws_assistant.send(subscribe_orderbook_request)
+
+            self.add_trading_pair(trading_pair)
+            self.logger().info(f"Subscribed to {trading_pair} order book and trade channels")
+            return True
+
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().exception(f"Error subscribing to {trading_pair}")
+            return False
+
+    async def unsubscribe_from_trading_pair(self, trading_pair: str) -> bool:
+        """
+        Unsubscribes from order book and trade channels for a single trading pair
+        on the existing WebSocket connection.
+
+        :param trading_pair: the trading pair to unsubscribe from
+        :return: True if unsubscription was successful, False otherwise
+        """
+        if self._ws_assistant is None:
+            self.logger().warning(
+                f"Cannot unsubscribe from {trading_pair}: WebSocket not connected"
+            )
+            return False
+
+        try:
+            symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+
+            trade_topic = self._get_trade_topic_from_symbol(symbol)
+            orderbook_topic = self._get_ob_topic_from_symbol(symbol, self._depth)
+
+            unsubscribe_payload = {
+                "op": "unsubscribe",
+                "args": [trade_topic, orderbook_topic]
+            }
+            unsubscribe_request: WSJSONRequest = WSJSONRequest(payload=unsubscribe_payload)
+
+            await self._ws_assistant.send(unsubscribe_request)
+
+            self.remove_trading_pair(trading_pair)
+            self.logger().info(f"Unsubscribed from {trading_pair} order book and trade channels")
+            return True
+
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().exception(f"Error unsubscribing from {trading_pair}")
+            return False
+
+    @classmethod
+    def _get_next_subscribe_id(cls) -> int:
+        """Returns the next subscription ID and increments the counter."""
+        current_id = cls._next_subscribe_id
+        cls._next_subscribe_id += 1
+        return current_id

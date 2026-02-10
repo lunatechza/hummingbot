@@ -184,10 +184,11 @@ class TradeFeeBase(ABC):
     ) -> Decimal:
         from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 
-        if exchange is not None and trading_pair in exchange.order_books:
+        if (exchange is not None and hasattr(exchange, "order_books") and exchange.order_books is not None and
+                trading_pair in exchange.order_books):
             rate = exchange.get_price_by_type(trading_pair, PriceType.MidPrice)
         else:
-            local_rate_source: RateOracle = rate_source or RateOracle.get_instance()
+            local_rate_source: Optional[RateOracle] = rate_source or RateOracle.get_instance()
             rate: Decimal = local_rate_source.get_pair_rate(trading_pair)
             if rate is None:
                 raise ValueError(f"Could not find the exchange rate for {trading_pair} using the rate source "
@@ -210,9 +211,11 @@ class TradeFeeBase(ABC):
             if self._are_tokens_interchangeable(quote, token):
                 fee_amount += amount_from_percentage
             else:
-                conversion_pair: str = combine_to_hb_trading_pair(base=quote, quote=token)
-                conversion_rate: Decimal = self._get_exchange_rate(conversion_pair, exchange, rate_source)
-                fee_amount += amount_from_percentage * conversion_rate
+                conversion_rate: Decimal = self._get_exchange_rate(trading_pair, exchange, rate_source)
+                # Protect against division by zero - use trade price as fallback if rate is 0
+                if conversion_rate == S_DECIMAL_0:
+                    conversion_rate = price if price > S_DECIMAL_0 else Decimal("1")
+                fee_amount += amount_from_percentage / conversion_rate
         for flat_fee in self.flat_fees:
             if self._are_tokens_interchangeable(flat_fee.token, token):
                 # No need to convert the value
@@ -224,13 +227,21 @@ class TradeFeeBase(ABC):
             else:
                 conversion_pair: str = combine_to_hb_trading_pair(base=flat_fee.token, quote=token)
                 conversion_rate: Decimal = self._get_exchange_rate(conversion_pair, exchange, rate_source)
-                fee_amount += (flat_fee.amount * conversion_rate)
+                fee_amount += flat_fee.amount * conversion_rate
         return fee_amount
 
     def _are_tokens_interchangeable(self, first_token: str, second_token: str):
         interchangeable_tokens = [
             {"WETH", "ETH"},
-            {"WBTC", "BTC"}
+            {"WBNB", "BNB"},
+            {"WPOL", "POL"},
+            {"WAVAX", "AVAX"},
+            {"WONE", "ONE"},
+            {"USDC", "USDC.E"},
+            {"WBTC", "BTC"},
+            {"USOL", "SOL"},
+            {"UETH", "ETH"},
+            {"UBTC", "BTC"}
         ]
         return first_token == second_token or any(({first_token, second_token} <= interchangeable_pair
                                                    for interchangeable_pair
@@ -304,3 +315,11 @@ class DeductedFromReturnsTradeFee(TradeFeeBase):
         """
         impact = order_candidate.potential_returns.amount * self.percent
         return impact
+
+
+@dataclass(frozen=True)
+class MakerTakerExchangeFeeRates:
+    maker: Decimal
+    taker: Decimal
+    maker_flat_fees: List[TokenAmount]
+    taker_flat_fees: List[TokenAmount]
